@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#7cc4ea" />
+  <title>Kite Fight</title>
+  <meta name="description" content="Dash your kite through their string. Three cuts and they drop! Duel the computer, a friend on one phone, or online." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta property="og:title" content="Kite Fight" />
+  <meta property="og:description" content="Dash your kite through their string. Three cuts and they drop!" />
+  <meta property="og:image" content="https://thespectrumtechengine.com/kite-fight/share.jpg" />
+  <meta property="og:url" content="https://thespectrumtechengine.com/kite-fight/" />
+  <meta property="og:type" content="website" />
+  <script src="https://thespectrumtechengine.com/ste-owner.js" data-app="kite-fight" defer></script>
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <button class="icon-btn hidden" id="pauseBtn" aria-label="Pause">❚❚</button>
+
+  <!-- Title -->
+  <div id="title" class="screen">
+    <h1>Kite Fight</h1>
+    <p class="sub">Dash through their string three times to cut it!</p>
+    <div class="row">
+      <button class="big" id="playBtn">1 Player</button>
+      <button class="big alt" id="twoBtn">2 Players</button>
+      <button class="big net" id="onlineBtn">Online</button>
+    </div>
+    <div class="row">
+      <button class="small" id="howBtn">How to play</button>
+      <button class="small sound-btn">Sound: off</button>
+      <button class="small music-btn">Music: off</button>
+    </div>
+    <button class="ste-badge" data-ste-badge aria-label="The Spectrum Tech Engine">The Spectrum Tech Engine</button>
+  </div>
+
+  <!-- How to play -->
+  <div id="how" class="screen dim hidden">
+    <h2>How to play</h2>
+    <ul class="how">
+      <li><b>Let go</b> and your kite <b>spins</b> on the spot.</li>
+      <li><b>Hold</b> (tap, click or Space) and it <b>dashes</b> where its nose points. Watch the dotted arrow.</li>
+      <li><b>Dash your kite through their string</b> to notch it. Loop round and do it again: <b>3 notches</b> and it's cut!</li>
+      <li>Grab power-ups: <span class="pu glass">✦</span> glass string (each pass counts double), <span class="pu boost">➤</span> speed, <span class="pu mend">✚</span> mends a notch.</li>
+      <li>First to cut the other kite <b>twice</b> wins.</li>
+    </ul>
+    <div class="row">
+      <button class="small" id="watchBtn">▶ Watch how</button>
+      <button class="big" id="howClose">Got it</button>
+    </div>
+  </div>
+
+  <!-- Kite picker -->
+  <div id="kites" class="screen dim hidden">
+    <h2 id="kitesTitle">Choose your kite</h2>
+    <p class="pick-title" id="k1Label">Player 1 · left side</p>
+    <div class="kites" id="kiteRow1"></div>
+    <p class="pick-title" id="k2Label">Player 2 · right side</p>
+    <div class="kites" id="kiteRow2"></div>
+    <div class="row">
+      <button class="small" id="kitesBack">Back</button>
+      <button class="big" id="kitesNext">Next</button>
+    </div>
+  </div>
+
+  <!-- Online lobby -->
+  <div id="online" class="screen dim hidden">
+    <h2>Online duel</h2>
+    <div class="row">
+      <input id="nameIn" maxlength="14" placeholder="Your name" aria-label="Your name" autocomplete="off">
+      <button class="big" id="hostBtn">Open a challenge</button>
+    </div>
+    <div class="row">
+      <input id="codeIn" inputmode="numeric" maxlength="4" placeholder="Code" aria-label="Challenge code" autocomplete="off">
+      <button class="small" id="joinBtn">Join with code</button>
+    </div>
+    <div class="lobby" id="lobbyList"></div>
+    <p class="tip" id="onlineNote">Connecting…</p>
+    <button class="small" id="onlineBack">Back</button>
+  </div>
+
+  <!-- Online: waiting for the other player -->
+  <div id="wait" class="screen dim hidden">
+    <h2 id="waitTitle">Waiting for a challenger</h2>
+    <div class="code" id="waitCode"></div>
+    <p class="sub" id="waitMsg"></p>
+    <div class="row">
+      <button class="big" id="shareBtn">Send the code</button>
+      <button class="small" id="waitCancel">Cancel</button>
+    </div>
+  </div>
+
+  <!-- How-to-win intro reel (shown when the game opens) -->
+  <div id="intro" class="hidden">
+    <div class="intro-title">How to win</div>
+    <button class="small" id="introSkip">Skip ▸</button>
+    <button class="big hidden" id="introGo">Let's fight!</button>
+  </div>
+
+  <!-- Opponent ladder -->
+  <div id="ladder" class="screen dim hidden">
+    <h2>Choose your opponent</h2>
+    <div class="ladder" id="ladderList"></div>
+    <button class="small" id="ladderBack">Back</button>
+  </div>
+
+  <!-- Versus card -->
+  <div id="versus" class="screen dim hidden">
+    <div class="vs-face" id="vsFace">👴</div>
+    <h2 id="vsName">Grandad Joe</h2>
+    <p class="sub" id="vsTag"></p>
+    <p class="pick-title">Choose your battle</p>
+    <div class="modes" id="modes"></div>
+    <p class="tip" id="modeBlurb"></p>
+    <button class="big" id="fightBtn">Fight!</button>
+    <button class="small" id="vsBack">Back</button>
+  </div>
+
+  <!-- Pause -->
+  <div id="pause" class="screen dim hidden">
+    <h2>Paused</h2>
+    <button class="big" id="resumeBtn">Resume</button>
+    <div class="row">
+      <button class="small" id="quitBtn">Quit match</button>
+      <button class="small sound-btn">Sound: off</button>
+      <button class="small music-btn">Music: off</button>
+    </div>
+  </div>
+
+  <!-- Match over -->
+  <div id="end" class="screen dim hidden">
+    <h2 id="endTitle">You won!</h2>
+    <p class="sub" id="endSub"></p>
+    <div class="row">
+      <button class="small" id="rematchBtn">Rematch</button>
+      <button class="small" id="endLadderBtn">Opponents</button>
+      <button class="big" id="nextBtn">Next opponent</button>
+    </div>
+  </div>
+
+  <div id="rotate">Turn your phone sideways to fight 🪁</div>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>

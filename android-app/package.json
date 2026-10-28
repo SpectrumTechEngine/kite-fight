@@ -1,0 +1,13 @@
+{
+  "name": "kite-fight-android",
+  "private": true,
+  "description": "Builds the Android APK for Kite Fight. See README.md in this folder.",
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "Kite Fight",
+  "short_name": "Kite Fight",
+  "description": "Dash your kite through their string. Three cuts and they drop! Duel the computer, a friend on one phone, or online.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#7cc4ea",
+  "theme_color": "#7cc4ea",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "appId": "com.thespectrumtechengine.kitefight",
+  "appName": "Kite Fight",
+  "webDir": "www",
+  "backgroundColor": "#7cc4ea",
+  "server": {
+    "url": "https://thespectrumtechengine.com/kite-fight/",
+    "errorPath": "index.html"
+  }
+}
