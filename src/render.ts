@@ -2,17 +2,41 @@ import { A, type Fight, type Kite, type PickupType, type Vec } from './physics';
 import type { KiteLook } from './opponents';
 
 // Everything is drawn in a fixed 960 x 540 arena, scaled to fit and centred; the sky and grass fill any extra space.
-const VW = 960, VH = 540, GROUND = 470;
+export const VW = 960, VH = 540, GROUND = 470;
 
 /** Kites players can pick. Looks only: every kite flies exactly the same. */
-export const KITES: (KiteLook & { name: string })[] = [
+export const KITES: (KiteLook & { name: string; unlock?: string })[] = [
   { name: 'Sunrise', shape: 'diamond', a: '#ff6b6b', b: '#ffd166', tail: ['#ff6b6b', '#ffd166', '#4ecdc4'] },
   { name: 'Ocean', shape: 'diamond', a: '#3a86ff', b: '#8ecae6', tail: ['#3a86ff', '#ffffff', '#8ecae6'] },
   { name: 'Tiger Patang', shape: 'patang', deco: 'stripes', a: '#ff8c1a', b: '#2b2118', tail: ['#ff8c1a', '#2b2118', '#ffd166'] },
   { name: 'Phoenix', shape: 'delta', a: '#e63946', b: '#ffb703', tail: ['#ffb703', '#e63946', '#fb8500'] },
   { name: 'Dragon Eye', shape: 'hex', deco: 'eye', a: '#2a9d8f', b: '#e9c46a', tail: ['#2a9d8f', '#e9c46a', '#264653'] },
   { name: 'Midnight Star', shape: 'diamond', deco: 'star', a: '#1d3557', b: '#a8dadc', tail: ['#a8dadc', '#f1faee', '#457b9d'] },
+  // Won by climbing the ladder (unlock = the opponent you must beat)
+  { name: 'Rooftop Rebel', unlock: 'ravi', shape: 'patang', deco: 'eye', a: '#ef476f', b: '#06d6a0', tail: ['#ef476f', '#06d6a0', '#ffd166'] },
+  { name: 'Storm Rider', unlock: 'sprocket', shape: 'delta', deco: 'stripes', a: '#3a0ca3', b: '#4cc9f0', tail: ['#4cc9f0', '#3a0ca3', '#f72585'] },
+  { name: 'Thunder Patang', unlock: 'queen', shape: 'patang', deco: 'star', a: '#14213d', b: '#fca311', tail: ['#fca311', '#e5e5e5', '#14213d'] },
+  { name: 'Golden Champion', unlock: 'storm', shape: 'hex', deco: 'star', a: '#ffc300', b: '#fff3b0', tail: ['#ffc300', '#ffffff', '#ff8c00'] },
 ];
+
+/** The sky changes every round. */
+interface Sky {
+  name: string; top: string; mid: string; low: string;
+  glow: string; sun: [number, number, number]; disc: string | null;
+  clouds: string | null; far: string; near: string; town: 'roofs' | 'flat' | 'lit' | null; sea?: boolean; night?: boolean;
+  ground: string; ground2: string; blade: string;
+}
+export const SKIES: Sky[] = [
+  { name: 'Sunny hills', top: '#7cc4ea', mid: '#b9e2f1', low: '#eaf6e6', glow: '#fff6d6', sun: [780, 80, 150], disc: null, clouds: '#ffffff',
+    far: '#b5dcb0', near: '#8cc77f', town: 'roofs', ground: '#6cb35f', ground2: '#8acb6d', blade: '#4c8f4a' },
+  { name: 'Sunset rooftops', top: '#5b4b8a', mid: '#f08a5d', low: '#ffd29d', glow: '#ffe3a3', sun: [700, 300, 200], disc: '#ffcf6e', clouds: '#ffb3a1',
+    far: '#a2697c', near: '#7a4e5e', town: 'flat', ground: '#b9876a', ground2: '#d3a07f', blade: '#8e5f48' },
+  { name: 'Seaside', top: '#3fb3e8', mid: '#9fe0f7', low: '#e6f9ff', glow: '#fffbe0', sun: [190, 85, 140], disc: null, clouds: '#ffffff',
+    far: '', near: '', town: null, sea: true, ground: '#e8c27f', ground2: '#f2d49b', blade: '#c9a060' },
+  { name: 'Lantern night', top: '#0b1a3a', mid: '#213a6b', low: '#3d4f80', glow: '#e8ecff', sun: [790, 90, 110], disc: '#f4f1de', clouds: null,
+    far: '#1d2b4f', near: '#26365e', town: 'lit', night: true, ground: '#2e5a3c', ground2: '#3c6e4a', blade: '#1f4029' },
+];
+export const skyOf = (f: Fight) => SKIES[(((f.seed + f.round - 1) % SKIES.length) + SKIES.length) % SKIES.length];
 
 type P2 = [number, number];
 /** Draw a kite body at the origin, nose pointing up (canvas units). Used in the game and the kite picker. */
@@ -68,7 +92,9 @@ const PICKUP: Record<PickupType, { icon: string; color: string; label: string }>
   glass: { icon: '✦', color: '#7fdbff', label: 'GLASS STRING!' },
   boost: { icon: '➤', color: '#ffd166', label: 'SPEED!' },
   mend: { icon: '✚', color: '#7ee081', label: 'STRING MENDED' },
+  shield: { icon: '⬢', color: '#c77dff', label: 'SHIELD!' },
 };
+const GRAWLIX = ['#@!%', 'GRRR!', '$%&!', '!!!', 'HMPH!'];
 
 export class Renderer {
   ctx: CanvasRenderingContext2D;
@@ -85,6 +111,8 @@ export class Renderer {
   modeName = '';
   hud = true;
   debug = false;
+  cam: { x: number; y: number; z: number } | null = null;   // replay zoom (x, y in screen units)
+  replay = false;
 
   constructor(public canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
@@ -116,6 +144,7 @@ export class Renderer {
     const c = this.ctx;
     c.save();
     if (this.shake > 0) { c.translate((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake); this.shake = Math.max(0, this.shake - dt * 40); }
+    if (this.cam) { c.translate(VW / 2, VH / 2); c.scale(this.cam.z, this.cam.z); c.translate(-this.cam.x, -this.cam.y); }
     this.scene(f);
 
     // Pickups
@@ -136,47 +165,132 @@ export class Renderer {
     for (const k of f.kites) this.kite(k, this.looks[k.side], f.t);
     if (aimHint && f.phase !== 'over') { this.aim(f.kites[mine], f.t); if (aimBoth) this.aim(f.kites[1 - mine], f.t); }
     if (this.twoP && f.round === 1 && (f.phase === 'count' || (f.phase === 'fight' && f.roundT < 2.5))) this.splitGuide(f);
+    if (f.gustWarn > 0 || f.gustOn > 0) this.gustDraw(f);
     this.particles(dt);
     this.popups(dt);
-    if (this.hud) this.hudDraw(f);
-    this.banners(dt);
+    c.restore();
+    c.save();
+    if (this.hud && !this.replay) this.hudDraw(f);
+    if (this.replay) this.replayDraw(f.t);
+    else this.banners(dt);
     if (this.caption) this.captionDraw(f.t);
     if (this.debug) this.debugDraw(f);
     c.restore();
   }
 
+  /** Wind gust: a flashing warning on the side it comes from, then streaks rushing across. */
+  private gustDraw(f: Fight) {
+    const c = this.ctx, dir = f.gustDir;
+    c.save();
+    if (f.gustWarn > 0) {
+      const x = dir > 0 ? 90 : VW - 90, a = 0.55 + Math.sin(f.t * 18) * 0.45;
+      c.globalAlpha = a; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.font = '900 34px system-ui'; c.lineWidth = 6; c.strokeStyle = 'rgba(30,50,70,0.55)'; c.lineJoin = 'round';
+      const arrows = dir > 0 ? '›››' : '‹‹‹';
+      c.strokeText('GUST!', x, 230); c.fillStyle = '#ffffff'; c.fillText('GUST!', x, 230);
+      c.font = '900 54px system-ui'; c.strokeText(arrows, x, 278); c.fillStyle = '#9bf6ff'; c.fillText(arrows, x, 278);
+    } else {
+      const k = Math.abs(f.gustForce());
+      c.strokeStyle = '#ffffff'; c.lineCap = 'round';
+      for (let i = 0; i < 26; i++) {
+        const len = 60 + hash(i + 3) * 90, span = VW + 2 * this.ox + 400;
+        const x = ((f.t * 1100 * dir + hash(i + 7) * span) % span + span) % span - this.ox - 200, y = 30 + hash(i) * 420;
+        c.globalAlpha = k * (0.25 + hash(i + 1) * 0.4); c.lineWidth = 1.5 + hash(i + 2) * 2;
+        c.beginPath(); c.moveTo(x, y); c.lineTo(x - dir * len, y); c.stroke();
+      }
+    }
+    c.restore();
+  }
+
+  /** Kill-cam overlay: letterbox bars and a blinking REPLAY sign. */
+  private replayDraw(t: number) {
+    const c = this.ctx, x0 = -this.ox - 10, w = VW + 2 * this.ox + 20, bar = 46;
+    c.fillStyle = '#000';
+    c.fillRect(x0, -this.oy - 10, w, this.oy + 10 + bar); c.fillRect(x0, VH - bar, w, this.oy + 10 + bar);
+    c.textBaseline = 'middle'; c.font = '900 24px system-ui'; c.textAlign = 'left';
+    if (Math.sin(t * 8) > -0.3) { c.fillStyle = '#ff3b30'; c.beginPath(); c.arc(40, bar / 2, 8, 0, 7); c.fill(); }
+    c.fillStyle = '#fff'; c.fillText('REPLAY', 56, bar / 2 + 1);
+    c.font = '600 15px system-ui'; c.textAlign = 'right'; c.globalAlpha = 0.75; c.fillText('tap to skip', VW - 84, VH - bar / 2);
+    c.globalAlpha = 1;
+  }
+
   // ---------- scenery ----------
   private scene(f: Fight) {
-    const c = this.ctx, x0 = -this.ox - 10, x1 = VW + this.ox + 10, top = -this.oy - 10, bot = VH + this.oy + 10;
+    const c = this.ctx, x0 = -this.ox - 10, x1 = VW + this.ox + 10, top = -this.oy - 10, bot = VH + this.oy + 10, sky = skyOf(f);
     const g = c.createLinearGradient(0, top, 0, GROUND);
-    g.addColorStop(0, '#7cc4ea'); g.addColorStop(0.6, '#b9e2f1'); g.addColorStop(1, '#eaf6e6');
+    g.addColorStop(0, sky.top); g.addColorStop(0.6, sky.mid); g.addColorStop(1, sky.low);
     c.fillStyle = g; c.fillRect(x0, top, x1 - x0, bot - top);
-    const sg = c.createRadialGradient(780, 80, 10, 780, 80, 150);
-    sg.addColorStop(0, '#fff6d6'); sg.addColorStop(0.3, 'rgba(255,246,214,0.6)'); sg.addColorStop(1, 'rgba(255,246,214,0)');
-    c.fillStyle = sg; c.fillRect(620, -80, 320, 320);
+    if (sky.night) {
+      // Twinkling stars
+      c.fillStyle = '#ffffff';
+      for (let k = 0; k < 70; k++) {
+        const x = x0 + hash(k + 40) * (x1 - x0), y = top + hash(k + 90) * (330 - top);
+        c.globalAlpha = 0.35 + 0.65 * Math.abs(Math.sin(f.t * (1 + hash(k) * 2) + k));
+        c.fillRect(x, y, 1.6 + hash(k + 5), 1.6 + hash(k + 5));
+      }
+      c.globalAlpha = 1;
+    }
+    const [sx, sy, sr] = sky.sun;
+    const sg = c.createRadialGradient(sx, sy, 10, sx, sy, sr);
+    sg.addColorStop(0, sky.glow); sg.addColorStop(0.3, sky.glow + '99'); sg.addColorStop(1, sky.glow + '00');
+    c.fillStyle = sg; c.fillRect(sx - sr, sy - sr, sr * 2, sr * 2);
+    if (sky.disc) { c.fillStyle = sky.disc; c.beginPath(); c.arc(sx, sy, sky.night ? 26 : 46, 0, 7); c.fill(); }
+    if (sky.night) {
+      // Sky lanterns drifting up
+      for (let k = 0; k < 9; k++) {
+        const x = 60 + hash(k + 11) * (VW - 120) + Math.sin(f.t * 0.6 + k) * 14, y = 440 - ((f.t * (10 + hash(k) * 8) + hash(k + 3) * 520) % 520);
+        const lg = c.createRadialGradient(x, y, 1, x, y, 16); lg.addColorStop(0, 'rgba(255,190,90,0.9)'); lg.addColorStop(1, 'rgba(255,150,60,0)');
+        c.fillStyle = lg; c.beginPath(); c.arc(x, y, 16, 0, 7); c.fill();
+        c.fillStyle = '#ffb347'; c.beginPath(); c.roundRect(x - 4, y - 5, 8, 10, 2); c.fill();
+      }
+    }
     // Clouds drift with the wind
     const off = f.t * (8 + f.wind * 25);
-    c.fillStyle = '#fff';
-    for (let k = -2; k < 6; k++) {
+    c.fillStyle = sky.clouds ?? '#fff';
+    for (let k = -2; k < (sky.clouds ? 6 : -2); k++) {
       const span = VW + 600, x = ((k * 330 + off + hash(k) * 200) % span + span) % span - 300, y = 50 + hash(k + 9) * 130, sz = 0.6 + hash(k + 3) * 0.7;
       c.globalAlpha = 0.6 + hash(k + 5) * 0.3;
       c.beginPath(); c.ellipse(x, y, 60 * sz, 20 * sz, 0, 0, 7); c.ellipse(x - 30 * sz, y + 4, 34 * sz, 16 * sz, 0, 0, 7); c.ellipse(x + 26 * sz, y - 10 * sz, 36 * sz, 22 * sz, 0, 0, 7); c.fill();
     }
     c.globalAlpha = 1;
-    this.hills(x0, x1, 340, 55, '#b5dcb0', 1);
-    this.hills(x0, x1, 395, 40, '#8cc77f', 2);
-    // Town rooftops on the far hill
-    for (let k = 0; k < 9; k++) {
+    if (sky.sea) {
+      // The sea, with glinting waves
+      const sea = c.createLinearGradient(0, 360, 0, GROUND);
+      sea.addColorStop(0, '#1e88c7'); sea.addColorStop(1, '#55c1e8');
+      c.fillStyle = sea; c.fillRect(x0, 360, x1 - x0, GROUND - 360);
+      c.strokeStyle = 'rgba(255,255,255,0.6)'; c.lineWidth = 2;
+      for (let k = 0; k < 18; k++) {
+        const y = 372 + hash(k) * 80, x = ((hash(k + 4) * (x1 - x0) + f.t * 12 * (hash(k + 8) - 0.5)) % (x1 - x0)) + x0;
+        c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + 10, y - 4, x + 20, y); c.stroke();
+      }
+    } else {
+      this.hills(x0, x1, 340, 55, sky.far, 1);
+      this.hills(x0, x1, 395, 40, sky.near, 2);
+    }
+    // Town on the far hill
+    for (let k = 0; sky.town && k < 9; k++) {
       const x = 120 + k * 95 + hash(k) * 40, base = this.hillY(x, 395, 40, 2) + 6, h = 18 + hash(k + 1) * 22, w = 26 + hash(k + 2) * 16;
-      c.fillStyle = ['#e9d8c4', '#f2e6d0', '#dccab4'][k % 3]; c.fillRect(x - w / 2, base - h, w, h);
-      c.fillStyle = ['#c26a4a', '#a8584a', '#d08158'][k % 3]; c.beginPath(); c.moveTo(x - w / 2 - 3, base - h); c.lineTo(x, base - h - 12); c.lineTo(x + w / 2 + 3, base - h); c.fill();
+      if (sky.town === 'roofs') {
+        c.fillStyle = ['#e9d8c4', '#f2e6d0', '#dccab4'][k % 3]; c.fillRect(x - w / 2, base - h, w, h);
+        c.fillStyle = ['#c26a4a', '#a8584a', '#d08158'][k % 3]; c.beginPath(); c.moveTo(x - w / 2 - 3, base - h); c.lineTo(x, base - h - 12); c.lineTo(x + w / 2 + 3, base - h); c.fill();
+      } else {
+        // Flat rooftops (kite-fighting country), with water tanks; lit windows at night
+        const hh = h + 10;
+        c.fillStyle = sky.town === 'lit' ? '#141d38' : ['#5a3d4a', '#654453', '#4e3441'][k % 3];
+        c.fillRect(x - w / 2, base - hh, w, hh); c.fillRect(x - w / 2 - 2, base - hh - 3, w + 4, 4);
+        if (hash(k + 6) > 0.4) c.fillRect(x + w / 6, base - hh - 10, 8, 8);
+        if (sky.town === 'lit') {
+          c.fillStyle = '#ffd27a';
+          for (let j = 0; j < 4; j++) if (hash(k * 5 + j) > 0.35) c.fillRect(x - w / 2 + 4 + (j % 2) * (w / 2 - 2), base - hh + 6 + Math.floor(j / 2) * 10, 5, 5);
+        }
+      }
     }
     // Ground
-    c.fillStyle = '#6cb35f'; c.fillRect(x0, GROUND - 6, x1 - x0, bot - GROUND + 6);
-    c.fillStyle = '#8acb6d'; c.beginPath(); c.moveTo(x0, GROUND + 2);
+    c.fillStyle = sky.ground; c.fillRect(x0, GROUND - 6, x1 - x0, bot - GROUND + 6);
+    c.fillStyle = sky.ground2; c.beginPath(); c.moveTo(x0, GROUND + 2);
     for (let x = x0; x <= x1; x += 10) c.lineTo(x, GROUND - 8 + Math.sin(x * 0.05) * 2);
     c.lineTo(x1, GROUND + 2); c.fill();
-    c.strokeStyle = '#4c8f4a'; c.lineWidth = 1.5;
+    c.strokeStyle = sky.blade; c.lineWidth = 1.5;
     for (let k = 0; k < 40; k++) {
       const x = x0 + hash(k) * (x1 - x0), y = GROUND + 20 + hash(k + 1) * 50;
       c.beginPath(); c.moveTo(x - 3, y); c.lineTo(x - 5, y - 7); c.moveTo(x, y); c.lineTo(x, y - 9); c.moveTo(x + 3, y); c.lineTo(x + 6, y - 6); c.stroke();
@@ -225,9 +339,11 @@ export class Renderer {
   private flyer(k: Kite, f: Fight) {
     const c = this.ctx, p = this.pose(k, f), m = p.m, t = f.t;
     const colour = k.side ? this.looks[1].a : '#ff7a59';
-    const hop = p.won ? -Math.abs(Math.sin(f.phaseT * 9)) * 5 : k.pulling ? Math.sin(t * 30) * 0.8 : 0;
+    // Kite knocked down: the flyer has a stamping, steaming tantrum
+    const mad = k.downT > 0 && !k.cut && f.phase !== 'over', at = A.downTime - k.downT;
+    const hop = p.won ? -Math.abs(Math.sin(f.phaseT * 9)) * 5 : mad ? -Math.abs(Math.sin(at * 14)) * 6 : k.pulling ? Math.sin(t * 30) * 0.8 : 0;
     const hip = -24 + p.sag + hop, head = hip - 30;
-    const skin = p.sick > 0 ? mix('#f3c9a3', '#a9cf7f', p.sick) : '#f3c9a3';
+    const skin = p.sick > 0 ? mix('#f3c9a3', '#a9cf7f', p.sick) : mad ? mix('#f3c9a3', '#ff5a4a', 0.55 + Math.sin(t * 20) * 0.25) : '#f3c9a3';
     c.save(); c.translate(p.px, p.py); c.rotate(p.ang);
     // Legs (knees buckle while wobbling)
     c.strokeStyle = '#2f3d4c'; c.lineCap = 'round'; c.lineWidth = 4;
@@ -243,8 +359,27 @@ export class Renderer {
     } else {
       for (const ex of [-2.6, 2.6]) { c.beginPath(); c.arc(ex, head, 1.1, 0, 7); c.fill(); }
     }
+    if (mad) {
+      // cross eyebrows, a shouting mouth, steam out of the ears
+      c.lineWidth = 1.6; c.beginPath(); c.moveTo(-5, head - 4.5); c.lineTo(-1, head - 2.2); c.moveTo(5, head - 4.5); c.lineTo(1, head - 2.2); c.stroke();
+      c.beginPath(); c.ellipse(0, head + 3.6, 2.4, 1.4 + Math.abs(Math.sin(at * 18)) * 1.2, 0, 0, 7); c.fill();
+      c.fillStyle = '#ffffff';
+      for (let i = 0; i < 3; i++) for (const sd of [-1, 1]) {
+        const q = (at * 1.6 + i / 3) % 1;
+        c.globalAlpha = 0.9 * (1 - q); c.beginPath(); c.arc(sd * (8 + q * 6), head - 3 - q * 16, 1.8 + q * 3, 0, 7); c.fill();
+      }
+      c.globalAlpha = 1;
+      const word = GRAWLIX[Math.floor(at / 0.45) % GRAWLIX.length], bx = 22 * m, by = head - 26;
+      c.font = '900 12px system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      const bw = c.measureText(word).width + 12;
+      c.fillStyle = '#ffffff'; c.beginPath(); c.roundRect(bx - bw / 2, by - 10, bw, 20, 8); c.fill();
+      c.beginPath(); c.moveTo(bx - 6 * m, by + 8); c.lineTo(6 * m, by + 16); c.lineTo(bx, by + 9); c.fill();
+      c.fillStyle = '#d62828'; c.fillText(word, bx, by + 1);
+      c.strokeStyle = c.fillStyle = '#2b2b2b'; c.lineWidth = 1.2;
+    }
     c.beginPath();
-    if (p.won) c.arc(0, head + 2, 2.6, 0.1 * Math.PI, 0.9 * Math.PI);
+    if (mad) { /* mouth already drawn */ }
+    else if (p.won) c.arc(0, head + 2, 2.6, 0.1 * Math.PI, 0.9 * Math.PI);
     else if (p.sick > 0) { c.moveTo(-2.5, head + 3.5); c.quadraticCurveTo(-1, head + 2.2, 0, head + 3.5); c.quadraticCurveTo(1, head + 4.8, 2.5, head + 3.5); }
     c.stroke();
     if (p.sick > 0.3 && !p.out) { // sweat drop
@@ -264,7 +399,7 @@ export class Renderer {
     c.strokeStyle = colour; c.lineWidth = 3.5;
     c.beginPath(); c.moveTo(3 * m, hip - 18); c.lineTo(hx, hy); c.stroke();
     // Spool arm: punches the air when they win
-    const sx = p.won ? -10 * m : -6 * m, sy = p.won ? hip - 46 : hip - 8;
+    const sx = p.won ? -10 * m : mad ? -9 * m + Math.sin(t * 45) * 2.5 : -6 * m, sy = p.won || mad ? hip - 46 : hip - 8;
     c.beginPath(); c.moveTo(-3 * m, hip - 18); c.lineTo(sx, sy); c.stroke();
     c.fillStyle = '#c9a26b'; c.beginPath(); c.arc(sx, sy, 5, 0, 7); c.fill();
     c.restore();
@@ -325,6 +460,11 @@ export class Renderer {
       c.fillStyle = g; c.beginPath(); c.arc(0, 0, 40, 0, 7); c.fill();
     }
     drawKite(c, look);
+    if (k.shield) {
+      c.strokeStyle = `rgba(199,125,255,${0.65 + Math.sin(t * 6) * 0.25})`; c.lineWidth = 3;
+      c.beginPath(); c.arc(0, 0, 36, 0, 7); c.stroke();
+      c.fillStyle = 'rgba(199,125,255,0.12)'; c.fill();
+    }
     c.restore();
   }
 
@@ -416,7 +556,7 @@ export class Renderer {
       }
       c.font = '700 17px system-ui'; c.textBaseline = 'top'; c.fillStyle = '#fff'; c.textAlign = right ? 'right' : 'left';
       c.lineWidth = 3; c.strokeStyle = 'rgba(30,50,70,0.5)';
-      const name = this.names[k.side] + (k.sharpT > 0 ? '  ✦' : '') + (k.boostT > 0 ? '  ➤' : '');
+      const name = this.names[k.side] + (k.sharpT > 0 ? '  ✦' : '') + (k.boostT > 0 ? '  ➤' : '') + (k.shield ? '  ⬢' : '');
       c.strokeText(name, right ? x + w : x, y + 22); c.fillText(name, right ? x + w : x, y + 22);
       // Round pips
       for (let i = 0; i < f.firstTo; i++) {
@@ -431,7 +571,7 @@ export class Renderer {
     c.textAlign = 'center'; c.textBaseline = 'top'; c.font = '800 22px system-ui'; c.fillStyle = '#fff';
     c.lineWidth = 4; c.strokeStyle = 'rgba(30,50,70,0.5)';
     const label = `Round ${f.round}`;
-    if (this.modeName) { c.font = '600 13px system-ui'; c.fillStyle = '#fff'; c.fillText(this.modeName, VW / 2, 62); c.font = '800 22px system-ui'; }
+    if (this.modeName) { c.font = '600 13px system-ui'; c.fillStyle = '#fff'; c.fillText(`${this.modeName} · ${skyOf(f).name}`, VW / 2, 62); c.font = '800 22px system-ui'; }
     if (!this.caption) { c.strokeText(label, VW / 2, 16); c.fillText(label, VW / 2, 16); }
     c.font = '600 13px system-ui'; c.fillStyle = '#fff';
     const arrow = Math.abs(f.wind) < 0.15 ? 'calm' : f.wind > 0 ? `wind ${'›'.repeat(1 + Math.round(Math.abs(f.wind) * 3))}` : `${'‹'.repeat(1 + Math.round(Math.abs(f.wind) * 3))} wind`;

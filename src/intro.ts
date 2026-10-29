@@ -12,7 +12,7 @@ export class IntroScript {
 
   update(f: Fight) {
     const [atk, def] = f.kites;
-    f.pickupT = 999;                                     // no power-ups in the reel
+    f.pickupT = 999; f.gustT = 999;                      // no power-ups or gusts in the reel
     const fresh = f.phase === 'count';
     if (fresh) { f.phase = 'fight'; f.phaseT = 0; this.a = Math.PI; }
 

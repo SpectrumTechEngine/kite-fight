@@ -282,8 +282,36 @@ export const bounce = () => play(() => { taiko(0, 0.7, 60); tone(160, 0.02, 0.4,
 /** Kites knock together: shield clash */
 export const knock = () => play(() => { clang(0, 0.08, 420); taiko(0, 0.5, 110); });
 
+/** Rammed out of the sky: a huge body-slam, a cartoon whistle down and a thud on the grass */
+export const knockdown = () => play(() => {
+  clang(0, 0.12, 260); taiko(0, 1, 50); crash(0, 0.18, 1);
+  tone(1500, 0.05, 0.5, 0.08, 'sine', 300, 0.3);
+  taiko(0.5, 0.9, 42); hiss(0.5, 0.25, 0.3, 'lowpass', 500, 150, 1, 0.3);
+});
+
+/** The flyer of a knocked-down kite having a tantrum: angry mumbling "grr-hmph" */
+export const grumble = () => play(() => {
+  const c = ctx!;
+  for (let i = 0; i < 5; i++) {
+    const t = now() + i * 0.16, o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
+    const base = 150 + Math.random() * 60;
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(base, t); o.frequency.linearRampToValueAtTime(base * (i % 2 ? 0.7 : 1.3), t + 0.13);
+    f.type = 'bandpass'; f.frequency.value = 700 + Math.random() * 400; f.Q.value = 3;
+    env(g, t, 0.16, 0.01, 0.14);
+    o.connect(f).connect(g); out(g, 0.2); o.start(t); o.stop(t + 0.2);
+  }
+});
+
+/** A gust is coming: rising whistle. Then the gust itself: a big whoosh. */
+export const gustWarn = () => play(() => { tone(600, 0, 1.2, 0.05, 'sine', 1800, 0.5, 0.3); hiss(0, 1.4, 0.12, 'bandpass', 500, 2500, 4, 0.4, 0.6); });
+export const gust = () => play(() => { hiss(0, 1.8, 0.45, 'bandpass', 300, 1200, 1.2, 0.5, 0.25); taiko(0, 0.4, 55); });
+
+/** A shield blocks a snip: big ringing shield clang */
+export const block = () => play(() => { clang(0, 0.16, 330); clang(0.02, 0.1, 495); taiko(0, 0.6, 90); });
+
 /** Power-ups */
-export const pickup = (type: 'glass' | 'boost' | 'mend') => play(() => {
+export const pickup = (type: 'glass' | 'boost' | 'mend' | 'shield') => play(() => {
+  if (type === 'shield') { clang(0, 0.08, 520); choir(up(Dm), 0, 1.1, 0.07, 'oh'); return; }
   if (type === 'glass') { [1318, 1568, 1976, 2637, 3136].forEach((f, i) => tone(f, i * 0.05, 0.9, 0.09, 'sine', undefined, 0.8)); choir(up(F), 0, 1.2, 0.07); }
   else if (type === 'boost') { hiss(0, 0.6, 0.35, 'bandpass', 250, 6000, 3, 0.3, 0.05); tone(150, 0, 0.55, 0.22, 'sawtooth', 1400, 0.3); taiko(0.5, 0.7, 80); }
   else { choir(F, 0, 1.4, 0.1); [523, 659, 784].forEach((f) => tone(f, 0, 1.2, 0.08, 'triangle', undefined, 0.7)); }

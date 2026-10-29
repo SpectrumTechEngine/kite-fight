@@ -4,7 +4,7 @@ import { Fight, rng } from '../src/physics';
 import { AI } from '../src/ai';
 import { OPPONENTS, type Brain } from '../src/opponents';
 
-const MASHER: Brain = { think: 0.25, tol: 9, holdMax: 0.4, mistakes: 2, care: 0, reach: 0 };
+const MASHER: Brain = { think: 0.25, tol: 9, holdMax: 0.4, mistakes: 2, care: 0, reach: 0, ram: 0 };
 
 function match(b0: Brain, b1: Brain, seed: number) {
   const f = new Fight(seed);
@@ -20,11 +20,11 @@ function match(b0: Brain, b1: Brain, seed: number) {
   return { winner: f.winner, rounds, roundTime };
 }
 
-const N = 40;
+const N = Number(process.env.N) || 20;
 const all = [{ name: 'Masher', brain: MASHER }, ...OPPONENTS.map((o) => ({ name: o.name, brain: o.brain }))];
 let rt = 0, rc = 0;
 console.log('Row player win % against column (playing on the left side)');
-console.log(''.padEnd(16) + all.map((a) => a.name.slice(0, 8).padStart(9)).join(''));
+console.log(''.padEnd(16) + all.map((a) => a.name.split(' ').pop()!.slice(0, 7).padStart(8)).join(''));
 for (const p of all) {
   let line = p.name.padEnd(16);
   for (const q of all) {
@@ -34,7 +34,7 @@ for (const p of all) {
       if (m.winner === 0) w++;
       rt += m.roundTime; rc += m.rounds;
     }
-    line += `${Math.round((w / N) * 100)}%`.padStart(9);
+    line += `${Math.round((w / N) * 100)}%`.padStart(8);
   }
   console.log(line);
 }

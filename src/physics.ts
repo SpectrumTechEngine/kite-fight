@@ -3,10 +3,11 @@
 // The core move, like real kite fighting: let go and your kite SPINS on the spot;
 // hold and it DASHES in the direction its nose points. Dash your kite through the
 // other kite's string to put a notch in it; enough notches (you choose: 1 to 7) and it's cut.
+// Ram the other KITE at full dash and it's knocked to the grass for 2 seconds.
 
 export interface Vec { x: number; y: number }
 export interface TailPt { x: number; y: number; px: number; py: number }
-export type PickupType = 'glass' | 'mend' | 'boost';
+export type PickupType = 'glass' | 'mend' | 'boost' | 'shield';
 export interface Pickup { x: number; y: number; type: PickupType; t: number }
 
 export const A = {
@@ -21,7 +22,13 @@ export const A = {
   hitSpeed: 230,    // a pass only counts if the kite is dashing at least this fast
   hitFrom: 0.4,     // only the string beyond this fraction (towards the kite) can be notched
   hitCooldown: 0.5, // seconds before the same kite can score again
+  ramSpeed: 200,    // dashing into the other kite at least this fast knocks it down...
+  downTime: 2,      // ...for this long (no control)
+  gust: 700,        // sideways push of a gust of wind
+  gustWarn: 1.6, gustLen: 1.6,
 };
+
+const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
 /** Small seeded random generator, so matches can be replayed and tested. */
 export function rng(seed: number) {
@@ -44,6 +51,8 @@ export class Kite {
   hitCD = 0; px = 0; py = 0;
   scripted = false; sx = 0; sy = 0;   // intro reel: the kite follows (sx, sy) instead of physics
   sharpT = 0; boostT = 0; invT = 0;
+  downT = 0;              // knocked down: seconds left lying on the grass
+  shield = false;         // blocks the next notch
   cut = false; cutAt: Vec | null = null;
   tail: TailPt[] = [];
   spinDir: 1 | -1;
@@ -57,7 +66,7 @@ export class Kite {
   place(x: number, y: number, heading: number) {
     this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.heading = heading;
     this.pulling = false; this.pull = 0; this.health = this.max; this.hitCD = 0; this.px = x; this.py = y;
-    this.sharpT = 0; this.boostT = 0; this.invT = 0; this.cut = false; this.cutAt = null;
+    this.sharpT = 0; this.boostT = 0; this.invT = 0; this.downT = 0; this.shield = false; this.cut = false; this.cutAt = null;
     const b = this.bottom;
     this.tail = Array.from({ length: TAIL_N }, (_, i) => ({ x: b.x, y: b.y - i * TAIL_SEG, px: b.x, py: b.y - i * TAIL_SEG }));
   }
@@ -70,12 +79,12 @@ export class Kite {
     const pts: Vec[] = [];
     for (let i = 0; i <= n; i++) {
       const t = i / n, u = 1 - t;
-      pts.push({ x: u * u * h.x + 2 * u * t * cx + t * t * this.x, y: u * u * h.y + 2 * u * t * cy + t * t * this.y });
+      pts.push({ x: u * u * h.x + 2 * u * t * cx + t * t * this.x, y: Math.max(3, u * u * h.y + 2 * u * t * cy + t * t * this.y) });
     }
     return pts;
   }
 
-  step(dt: number, hold: boolean, wind: number, t: number) {
+  step(dt: number, hold: boolean, wind: number, t: number, gust = 0) {
     if (this.cut) {
       // Cut loose: tumble away on the wind
       this.vx += (wind * 90 + (this.side ? 40 : -40) - this.vx) * 0.8 * dt;
@@ -94,6 +103,23 @@ export class Kite {
       return;
     }
     this.px = this.x; this.py = this.y;
+    if (this.downT > 0) {
+      // Knocked down: tumble to the grass and lie there, then pop back up
+      this.downT -= dt;
+      this.pulling = false; this.pull += (0 - this.pull) * Math.min(1, dt * 12);
+      if (this.y > 15) { this.vy += (-520 - this.vy) * 3 * dt; this.vx *= 1 - 2 * dt; this.heading += this.spinDir * 9 * dt; }
+      else {
+        this.vy = 0; this.vx *= 1 - 6 * dt;
+        const h = wrap(this.heading), flat = h >= 0 ? 1.5 : -1.5;
+        this.heading = h + (flat - h) * Math.min(1, dt * 10);
+      }
+      this.x += this.vx * dt; this.y = Math.max(14, this.y + this.vy * dt);
+      this.x = Math.max(20, Math.min(A.W - 20, this.x));
+      if (this.downT <= 0) { this.downT = 0; this.vy = 360; this.vx = 0; this.heading = 0; this.invT = 1; }
+      this.sharpT = Math.max(0, this.sharpT - dt); this.boostT = Math.max(0, this.boostT - dt); this.hitCD = Math.max(0, this.hitCD - dt);
+      this.stepTail(dt, wind, t);
+      return;
+    }
     this.pulling = hold;
     this.pull += ((hold ? 1 : 0) - this.pull) * Math.min(1, dt * 12);
     let ax: number, ay: number;
@@ -104,6 +130,7 @@ export class Kite {
       this.heading += this.spinDir * A.spin * dt;
       ax = wind * 70; ay = -A.gravity;
     }
+    ax += gust * A.gust;
     this.vx += (ax - this.vx * A.drag) * dt;
     this.vy += (ay - this.vy * A.drag) * dt;
     this.x += this.vx * dt; this.y += this.vy * dt;
@@ -158,7 +185,9 @@ export type FEvent =
   | { kind: 'hit'; by: 0 | 1; at: Vec; left: number; double: boolean }
   | { kind: 'cut'; loser: 0 | 1; at: Vec }
   | { kind: 'scrape'; who: 0 | 1 } | { kind: 'pickup'; who: 0 | 1; type: PickupType; at: Vec }
-  | { kind: 'bump'; at: Vec };
+  | { kind: 'bump'; at: Vec }
+  | { kind: 'knock'; who: 0 | 1; at: Vec } | { kind: 'block'; who: 0 | 1; at: Vec }
+  | { kind: 'gust'; dir: 1 | -1; on: boolean };
 
 export type Phase = 'count' | 'fight' | 'cut' | 'over';
 
@@ -167,12 +196,13 @@ export class Fight {
   phase: Phase = 'count'; phaseT = 0; t = 0; roundT = 0;
   round = 1; score: [number, number] = [0, 0];
   wind = 0; windTarget = 0; windT = 4;
+  gustT = 8; gustWarn = 0; gustOn = 0; gustDir: 1 | -1 = 1;   // gusts: warning, then a strong sideways push
   pickups: Pickup[] = []; pickupT = 5;
   winner: -1 | 0 | 1 = -1; lastLoser: -1 | 0 | 1 = -1;
   events: FEvent[] = [];
   r: () => number;
 
-  constructor(seed = 1, public notches = 3, public firstTo = 2) {
+  constructor(public seed = 1, public notches = 3, public firstTo = 2) {
     this.r = rng(seed);
     this.kites = [new Kite(0, { x: 90, y: 52 }), new Kite(1, { x: A.W - 90, y: 52 })];
     for (const k of this.kites) k.max = notches;
@@ -185,8 +215,12 @@ export class Fight {
     this.pickups = []; this.pickupT = 4 + this.r() * 3;
     this.phase = 'count'; this.phaseT = 0; this.roundT = 0;
     this.windTarget = (this.r() - 0.5) * 1.2;
+    this.gustT = 6 + this.r() * 5; this.gustWarn = 0; this.gustOn = 0;
     this.events.push({ kind: 'count', n: 3 });
   }
+
+  /** Sideways gust force right now (-1..1), smooth in and out. */
+  gustForce() { return this.gustOn > 0 ? this.gustDir * Math.sin(Math.PI * (1 - this.gustOn / A.gustLen)) : 0; }
 
   step(hold: [boolean, boolean]) {
     const dt = A.step;
@@ -205,7 +239,18 @@ export class Fight {
     }
 
     const live = this.phase === 'fight';
-    this.kites.forEach((k, i) => k.step(dt, live && hold[i], this.wind, this.t));
+    if (live) {
+      if (this.gustOn > 0) this.gustOn = Math.max(0, this.gustOn - dt);
+      else if (this.gustWarn > 0) {
+        this.gustWarn -= dt;
+        if (this.gustWarn <= 0) { this.gustWarn = 0; this.gustOn = A.gustLen; this.events.push({ kind: 'gust', dir: this.gustDir, on: true }); }
+      } else if ((this.gustT -= dt) <= 0) {
+        this.gustT = 9 + this.r() * 7; this.gustDir = this.r() < 0.5 ? -1 : 1; this.gustWarn = A.gustWarn;
+        this.events.push({ kind: 'gust', dir: this.gustDir, on: false });
+      }
+    } else { this.gustWarn = 0; this.gustOn = 0; }
+    const g = this.gustForce();
+    this.kites.forEach((k, i) => k.step(dt, live && hold[i], this.wind, this.t, g));
 
     if (this.phase === 'cut' || this.phase === 'over') {
       if (this.phase === 'cut' && this.phaseT > 2.6) { this.round++; this.startRound(); }
@@ -217,7 +262,7 @@ export class Fight {
 
     // Touching the grass just bounces the kite back up, nose to the sky
     for (const k of this.kites) {
-      if (k.y < 14) {
+      if (k.y < 14 && k.downT <= 0) {
         if (k.invT <= 0) { k.vy = 320; k.heading = 0; k.invT = 0.5; this.events.push({ kind: 'scrape', who: k.side }); }
         else k.vy = Math.abs(k.vy);
         k.y = 14;
@@ -229,8 +274,15 @@ export class Fight {
     if (d < 32 && d > 0) {
       const nx = dx / d, ny = dy / d, push = (32 - d) / 2;
       a.x -= nx * push; a.y -= ny * push; b.x += nx * push; b.y += ny * push;
-      const rel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
-      if (rel < 0) { a.vx += rel * nx; a.vy += rel * ny; b.vx -= rel * nx; b.vy -= rel * ny; this.events.push({ kind: 'bump', at: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } }); }
+      const rel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny, at = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      // Ramming: whoever charges in harder knocks the other one down
+      const ca = a.vx * nx + a.vy * ny, cb = -(b.vx * nx + b.vy * ny);
+      const [att, vic, push2] = ca >= cb ? [a, b, ca] : [b, a, cb];
+      if (push2 >= A.ramSpeed && att.pulling && att.downT <= 0 && vic.downT <= 0 && vic.invT <= 0) {
+        vic.downT = A.downTime; vic.vx = att.vx * 0.6; vic.vy = -250;
+        att.vx *= 0.3; att.vy *= 0.3; att.invT = Math.max(att.invT, 0.3);
+        this.events.push({ kind: 'knock', who: vic.side, at });
+      } else if (rel < 0) { a.vx += rel * nx; a.vy += rel * ny; b.vx -= rel * nx; b.vy -= rel * ny; this.events.push({ kind: 'bump', at }); }
     }
 
     // Dashing through the other kite's string puts a notch in it
@@ -239,6 +291,8 @@ export class Fight {
       if (k.hitCD > 0 || k.speed < A.hitSpeed || o.health <= 0) continue;
       const at = through({ x: k.px, y: k.py }, k, o.stringPts().slice(Math.round(10 * A.hitFrom)));
       if (!at) continue;
+      k.hitCD = A.hitCooldown;
+      if (o.shield) { o.shield = false; this.events.push({ kind: 'block', who: o.side, at }); continue; }
       const double = k.sharpT > 0;
       o.health = Math.max(0, o.health - (double ? 2 : 1));
       k.hitCD = A.hitCooldown;
@@ -251,7 +305,7 @@ export class Fight {
     if (this.pickupT <= 0 && this.pickups.length < 2) {
       this.pickupT = 6 + this.r() * 4;
       const roll = this.r();
-      this.pickups.push({ x: 220 + this.r() * (A.W - 440), y: 210 + this.r() * 240, type: roll < 0.4 ? 'glass' : roll < 0.7 ? 'boost' : 'mend', t: 0 });
+      this.pickups.push({ x: 220 + this.r() * (A.W - 440), y: 210 + this.r() * 240, type: roll < 0.3 ? 'glass' : roll < 0.55 ? 'boost' : roll < 0.75 ? 'mend' : 'shield', t: 0 });
     }
     this.pickups = this.pickups.filter((p) => {
       p.t += dt;
@@ -259,6 +313,7 @@ export class Fight {
         if (Math.hypot(k.x - p.x, k.y - p.y) < 34) {
           if (p.type === 'glass') k.sharpT = 6;
           else if (p.type === 'boost') k.boostT = 5;
+          else if (p.type === 'shield') k.shield = true;
           else k.health = Math.min(k.max, k.health + 1);
           this.events.push({ kind: 'pickup', who: k.side, type: p.type, at: { x: p.x, y: p.y } });
           return false;

@@ -33,6 +33,7 @@
     </div>
     <div class="row">
       <button class="small" id="howBtn">How to play</button>
+      <button class="small" id="trophyBtn">🏆 Trophies</button>
       <button class="small sound-btn">Sound: off</button>
       <button class="small music-btn">Music: off</button>
     </div>
@@ -46,8 +47,10 @@
       <li><b>Let go</b> and your kite <b>spins</b> on the spot.</li>
       <li><b>Hold</b> (tap, click or Space) and it <b>dashes</b> where its nose points. Watch the dotted arrow.</li>
       <li><b>Dash your kite through their string</b> to notch it. Loop round and do it again: <b>3 notches</b> and it's cut!</li>
-      <li>Grab power-ups: <span class="pu glass">✦</span> glass string (each pass counts double), <span class="pu boost">➤</span> speed, <span class="pu mend">✚</span> mends a notch.</li>
-      <li>First to cut the other kite <b>twice</b> wins.</li>
+      <li><b>Ram their kite</b> at full dash and it's <b>knocked to the grass</b> for 2 seconds. Their string is easy pickings!</li>
+      <li>Grab power-ups: <span class="pu glass">✦</span> glass string (each pass counts double), <span class="pu boost">➤</span> speed, <span class="pu mend">✚</span> mends a notch, <span class="pu shield">⬢</span> shield (blocks one notch).</li>
+      <li>Watch for <b>GUST!</b> warnings: a blast of wind is about to shove both kites sideways.</li>
+      <li>First to cut the other kite <b>twice</b> wins, and <b>keeps the loser's kite</b> as a trophy.</li>
     </ul>
     <div class="row">
       <button class="small" id="watchBtn">▶ Watch how</button>
@@ -71,6 +74,7 @@
   <!-- Online lobby -->
   <div id="online" class="screen dim hidden">
     <h2>Online duel</h2>
+    <button class="big" id="quickBtn">⚡ Find a match</button>
     <div class="row">
       <input id="nameIn" maxlength="14" placeholder="Your name" aria-label="Your name" autocomplete="off">
       <button class="big" id="hostBtn">Open a challenge</button>
@@ -136,11 +140,20 @@
   <div id="end" class="screen dim hidden">
     <h2 id="endTitle">You won!</h2>
     <p class="sub" id="endSub"></p>
+    <div class="end-trophy" id="endTrophy"></div>
     <div class="row">
       <button class="small" id="rematchBtn">Rematch</button>
       <button class="small" id="endLadderBtn">Opponents</button>
       <button class="big" id="nextBtn">Next opponent</button>
     </div>
+  </div>
+
+  <!-- Trophy cabinet -->
+  <div id="trophies" class="screen dim hidden">
+    <h2>🏆 Trophy cabinet</h2>
+    <p class="sub">Every kite you've won. Just for show: trophies can't be flown.</p>
+    <div class="trophy-list" id="trophyList"></div>
+    <button class="small" id="trophyBack">Back</button>
   </div>
 
   <div id="rotate">Turn your phone sideways to fight 🪁</div>

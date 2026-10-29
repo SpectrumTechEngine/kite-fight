@@ -47,7 +47,7 @@ button.small { font-size: 1rem; padding: 0.55em 1.3em; }
 .how { list-style: none; margin: 0; padding: 0; max-width: 640px; text-align: left; display: grid; gap: 0.45rem; }
 .how li { background: var(--paper); border-radius: 14px; padding: 0.5em 0.9em; font-size: 0.98rem; }
 .pu { display: inline-grid; place-items: center; width: 1.5em; height: 1.5em; border-radius: 50%; color: #fff; font-weight: 800; }
-.pu.glass { background: #4fb8e6; } .pu.boost { background: #e9b23a; } .pu.mend { background: #4cbf5c; }
+.pu.glass { background: #4fb8e6; } .pu.boost { background: #e9b23a; } .pu.mend { background: #4cbf5c; } .pu.shield { background: #a855f7; }
 .ladder { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; max-width: 900px; }
 .ladder button { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; width: 158px; padding: 0.7rem 0.5rem; border-radius: 18px; }
 .ladder .face { font-size: 2.2rem; }
@@ -65,7 +65,17 @@ button.small { font-size: 1rem; padding: 0.55em 1.3em; }
 .modes button small { font-size: 0.72rem; opacity: 0.7; }
 .modes button.on { border-color: var(--accent); background: #fff; transform: scale(1.06); }
 button.big.alt { background: #3a86ff; }
-.kites { display: flex; gap: 0.45rem; flex-wrap: wrap; justify-content: center; max-width: 760px; }
+.kites { display: flex; gap: 0.45rem; flex-wrap: nowrap; justify-content: flex-start; max-width: min(100%, 1000px); overflow-x: auto; padding: 6px 8px; touch-action: pan-x; scrollbar-width: thin; }
+.kites button { flex: none; }
+.kites button.locked canvas { filter: grayscale(1) brightness(0.8); opacity: 0.6; }
+.kites button.locked span { font-size: 0.66rem; }
+.trophy-list { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; max-width: 900px; max-height: 58vh; overflow-y: auto; touch-action: pan-y; padding: 4px; }
+.trophy { display: flex; flex-direction: column; align-items: center; background: var(--paper); border-radius: 16px; padding: 0.35rem 0.5rem; width: 118px; }
+.trophy canvas, .end-trophy canvas { position: static; width: 56px; height: 64px; }
+.trophy span { font-size: 0.75rem; font-weight: 700; }
+.trophy small { font-size: 0.68rem; opacity: 0.7; }
+.end-trophy { display: flex; align-items: center; gap: 0.5rem; background: var(--paper); border-radius: 18px; padding: 0.2rem 1rem 0.2rem 0.4rem; font-weight: 700; }
+.end-trophy:empty { display: none; }
 .kites button { display: flex; flex-direction: column; align-items: center; padding: 0.3rem 0.4rem 0.35rem; border-radius: 16px; width: 104px; border: 3px solid transparent; }
 .kites button canvas { position: static; width: 56px; height: 64px; }
 .kites button span { font-size: 0.75rem; font-weight: 600; }

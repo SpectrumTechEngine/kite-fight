@@ -4,9 +4,11 @@ A fast one-touch kite-fighting duel. **Let go** and your kite spins on the spot;
 
 Before each match you choose how many passes it takes to cut a string: One Snip Wonder (1), Double Trouble (2), Triple Threat (3), High Five Frenzy (5) or Seven Skies Showdown (7). These live in `src/modes.ts`.
 
-When the game opens, a slow-motion "How to win" reel shows a kite looping through the other kite's string three times (`src/intro.ts`; replay it from How to play, or skip it with `?nointro`). Pick from 6 kites before a match (looks only; they all fly the same). Play **1 Player** against the computer, or **2 Players** on one screen: the left half of the screen (or A / Space) flies the left kite, the right half (or L / Enter) flies the right kite. Or play **Online**: open a challenge and send the 4-number code (or the link `?duel=1234`), or accept one from the lobby. Online uses the same room system as Archer Duel: Chop the Check's Firebase Realtime Database, under `rooms/kite-fight-*` (`src/net.ts`). The challenger's phone runs the match and sends snapshots about 15 times a second (`src/sync.ts`); the other phone sends hold/let-go.
+When the game opens, a slow-motion "How to win" reel shows a kite looping through the other kite's string three times (`src/intro.ts`; replay it from How to play, or skip it with `?nointro`). Pick from 10 kites before a match (looks only; they all fly the same). 4 of them are won by climbing the ladder (`unlock` in `KITES`, `src/render.ts`). Play **1 Player** against the computer, or **2 Players** on one screen: the left half of the screen (or A / Space) flies the left kite, the right half (or L / Enter) flies the right kite. Or play **Online**: tap **Find a match** (joins the oldest open challenge, or opens one and waits; if two people tap at once, the later id joins the other), open a challenge and send the 4-number code (or the link `?duel=1234`), or accept one from the lobby. Online uses the same room system as Archer Duel: Chop the Check's Firebase Realtime Database, under `rooms/kite-fight-*` (`src/net.ts`). The challenger's phone runs the match and sends snapshots about 15 times a second (`src/sync.ts`); the other phone sends hold/let-go.
 
-Five computer opponents in a ladder (beat one to unlock the next): Little Niamh, Grandad Joe, Uncle Ravi, Captain Gale, The Sky Queen.
+Ten computer opponents in a ladder (beat one to unlock the next): Little Niamh, Grandad Joe, Uncle Ravi, Big Bridget, Captain Gale, Professor Sprocket, Ninja Nori, The Sky Queen, Madame Mistral, The Storm King (near unbeatable: instant reactions, exact aim, rams a lot).
+
+Extras: **ramming** (dash into the other kite at 200+ speed and it's knocked to the grass for 2 s with no control, while its flyer stamps, steams and swears in symbols), **gusts** (a "GUST!" warning, then a strong sideways push for 1.6 s), the **shield** power-up (blocks one notch), a new **sky every round** (Sunny hills, Sunset rooftops, Seaside, Lantern night: `SKIES` in `src/render.ts`), a **kill-cam** (the winning cut replayed in slow motion and zoomed in; tap to skip), "BO KATA!" on every cut, phone **buzz** (follows the Sound switch), and **trophies**: the winner keeps the loser's kite (1 Player and Online wins are saved in the 🏆 Trophies cabinet on the title screen; just for show).
 
 ## Run it locally
 
@@ -15,7 +17,7 @@ npm install
 npm run dev
 ```
 
-- `?vs=3` jumps straight into a match with opponent 3 (1 to 5).
+- `?vs=3` jumps straight into a match with opponent 3 (1 to 10).
 - `?debug` shows hitboxes and live numbers.
 - `npm run sim` makes every opponent fight every other one (plus a random button-masher) and prints win rates. Run it after changing physics or opponents to check the ladder still gets harder.
 - `npm run build` makes the `dist/` folder for the website.
@@ -36,6 +38,6 @@ npm run dev
 
 ## Adding an opponent
 
-Add an entry to `OPPONENTS` in `src/opponents.ts`. Brain settings: `think` (seconds between decisions, lower = faster), `tol` (how precisely it lines up a dash), `holdMax` (longest dash), `mistakes` (wrong moves per second), `care` (height it tries to stay above: higher = more timid), `reach` (how far past your string it aims). Then run `npm run sim` to see where it lands in the ladder.
+Add an entry to `OPPONENTS` in `src/opponents.ts`. Brain settings: `think` (seconds between decisions, lower = faster), `tol` (how precisely it lines up a dash), `holdMax` (longest dash), `mistakes` (wrong moves per second), `care` (height it tries to stay above: higher = more timid), `reach` (how far past your string it aims), `ram` (how often it charges at your kite), `snipe` (chance of checking exactly whether a dash right now would cut your string). Then run `npm run sim` to see where it lands in the ladder.
 
 The earlier calm flying version is kept in `_old-flight/` (not part of the build).
