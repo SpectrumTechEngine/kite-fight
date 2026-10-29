@@ -60,7 +60,7 @@ function buzz(p: number | number[]) {
 interface KFrame {
   t: number; phase: Phase; phaseT: number; wind: number; g: [number, number, 1 | -1]; pu: Pickup[];
   k: { x: number; y: number; heading: number; pull: number; pulling: boolean; health: number; cut: boolean; cutAt: Vec | null;
-    downT: number; shield: boolean; sharpT: number; boostT: number; tail: number[] }[];
+    downT: number; safeT: number; shield: boolean; sharpT: number; boostT: number; tail: number[] }[];
 }
 let rec: KFrame[] = [];
 let cam: { frames: KFrame[]; t: number; cutT: number; at: Vec; ghost: Fight; boom: boolean } | null = null;
@@ -73,7 +73,7 @@ function record() {
     t: fight.t, phase: fight.phase, phaseT: fight.phaseT, wind: fight.wind, g: [fight.gustWarn, fight.gustOn, fight.gustDir],
     pu: fight.pickups.map((p) => ({ ...p })),
     k: fight.kites.map((k) => ({ x: k.x, y: k.y, heading: k.heading, pull: k.pull, pulling: k.pulling, health: k.health, cut: k.cut, cutAt: k.cutAt && { ...k.cutAt },
-      downT: k.downT, shield: k.shield, sharpT: k.sharpT, boostT: k.boostT, tail: k.tail.flatMap((p) => [p.x, p.y]) })),
+      downT: k.downT, safeT: k.safeT, shield: k.shield, sharpT: k.sharpT, boostT: k.boostT, tail: k.tail.flatMap((p) => [p.x, p.y]) })),
   });
   while (rec.length > 2 && fight.t - rec[0].t > 2.4) rec.shift();
 }
@@ -107,7 +107,7 @@ function stepCam(dt: number) {
   g.kites.forEach((k, i) => {
     const d = fr.k[i];
     k.x = d.x; k.y = d.y; k.heading = d.heading; k.pull = d.pull; k.pulling = d.pulling; k.health = d.health; k.cut = d.cut; k.cutAt = d.cutAt;
-    k.downT = d.downT; k.shield = d.shield; k.sharpT = d.sharpT; k.boostT = d.boostT;
+    k.downT = d.downT; k.safeT = d.safeT; k.shield = d.shield; k.sharpT = d.sharpT; k.boostT = d.boostT;
     k.tail.forEach((p, j) => { p.x = p.px = d.tail[j * 2]; p.y = p.py = d.tail[j * 2 + 1]; });
   });
   if (!cam.boom && cam.t >= cam.cutT) {
@@ -544,7 +544,7 @@ function handleEvents() {
     else if (e.kind === 'knock') {
       const mineDown = solo && e.who === me;
       r.shake = 12; r.burst(e.at, ['#ffffff', '#ffd166', '#ff6b6b'], 28, 300, 200);
-      r.pop(solo ? (mineDown ? 'KNOCKED DOWN!' : 'TAKEDOWN!') : `${short(r.names[e.who])}: KNOCKED DOWN!`, e.at, mineDown ? '#ff8a8a' : '#ffe08a');
+      r.pop(solo ? (mineDown ? 'KNOCKED OVER!' : 'TAKEDOWN!') : `${short(r.names[e.who])}: KNOCKED OVER!`, e.at, mineDown ? '#ff8a8a' : '#ffe08a');
       audio.knockdown(); setTimeout(audio.grumble, 450); buzz(mineDown || !solo ? 180 : 50);
     }
     else if (e.kind === 'block') {

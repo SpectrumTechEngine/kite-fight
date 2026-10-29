@@ -1,6 +1,6 @@
 // Kite Fight service worker: always fetch the newest game when online, fall back to the saved copy offline.
 // Bump the cache name on every release.
-const C = 'kite-fight-v2';
+const C = 'kite-fight-v3';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 self.addEventListener('install', (e) => { self.skipWaiting(); e.waitUntil(caches.open(C).then((c) => c.addAll(FILES)).catch(() => {})); });
 self.addEventListener('activate', (e) => {

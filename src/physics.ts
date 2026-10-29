@@ -3,7 +3,8 @@
 // The core move, like real kite fighting: let go and your kite SPINS on the spot;
 // hold and it DASHES in the direction its nose points. Dash your kite through the
 // other kite's string to put a notch in it; enough notches (you choose: 1 to 7) and it's cut.
-// Ram the other KITE at full dash and it's knocked to the grass for 2 seconds.
+// Dive your kite into the other FLYER (the man holding the string) and he's knocked flat
+// for 2 seconds: his kite goes slack. Then he can't be knocked down again for 15 seconds.
 
 export interface Vec { x: number; y: number }
 export interface TailPt { x: number; y: number; px: number; py: number }
@@ -22,8 +23,10 @@ export const A = {
   hitSpeed: 230,    // a pass only counts if the kite is dashing at least this fast
   hitFrom: 0.4,     // only the string beyond this fraction (towards the kite) can be notched
   hitCooldown: 0.5, // seconds before the same kite can score again
-  ramSpeed: 200,    // dashing into the other kite at least this fast knocks it down...
-  downTime: 2,      // ...for this long (no control)
+  ramSpeed: 200,    // diving into the other flyer at least this fast knocks him over...
+  downTime: 2,      // ...for this long (his kite gets no control)
+  safeTime: 15,     // after getting up he can't be knocked over again for this long
+  manW: 13, manH: 64, // the flyer's body, for hits (stands 10 units behind his string hand)
   gust: 700,        // sideways push of a gust of wind
   gustWarn: 1.6, gustLen: 1.6,
 };
@@ -51,13 +54,17 @@ export class Kite {
   hitCD = 0; px = 0; py = 0;
   scripted = false; sx = 0; sy = 0;   // intro reel: the kite follows (sx, sy) instead of physics
   sharpT = 0; boostT = 0; invT = 0;
-  downT = 0;              // knocked down: seconds left lying on the grass
+  downT = 0;              // flyer knocked over: seconds left with a slack, uncontrolled kite
+  safeT = 0;              // flyer can't be knocked over again until this runs out
   shield = false;         // blocks the next notch
   cut = false; cutAt: Vec | null = null;
   tail: TailPt[] = [];
   spinDir: 1 | -1;
 
   constructor(public side: 0 | 1, public hand: Vec) { this.spinDir = side === 0 ? 1 : -1; }
+
+  /** Where the flyer stands (feet on the grass), just behind his string hand. */
+  get man(): Vec { return { x: this.hand.x - (this.side ? -10 : 10), y: 0 }; }
 
   get dir(): Vec { return { x: Math.sin(this.heading), y: Math.cos(this.heading) }; }
   get speed() { return Math.hypot(this.vx, this.vy); }
@@ -66,7 +73,7 @@ export class Kite {
   place(x: number, y: number, heading: number) {
     this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.heading = heading;
     this.pulling = false; this.pull = 0; this.health = this.max; this.hitCD = 0; this.px = x; this.py = y;
-    this.sharpT = 0; this.boostT = 0; this.invT = 0; this.downT = 0; this.shield = false; this.cut = false; this.cutAt = null;
+    this.sharpT = 0; this.boostT = 0; this.invT = 0; this.downT = 0; this.safeT = 0; this.shield = false; this.cut = false; this.cutAt = null;
     const b = this.bottom;
     this.tail = Array.from({ length: TAIL_N }, (_, i) => ({ x: b.x, y: b.y - i * TAIL_SEG, px: b.x, py: b.y - i * TAIL_SEG }));
   }
@@ -104,22 +111,21 @@ export class Kite {
     }
     this.px = this.x; this.py = this.y;
     if (this.downT > 0) {
-      // Knocked down: tumble to the grass and lie there, then pop back up
+      // Flyer knocked over: the string goes slack and the kite drifts down on the wind, fluttering
       this.downT -= dt;
       this.pulling = false; this.pull += (0 - this.pull) * Math.min(1, dt * 12);
-      if (this.y > 15) { this.vy += (-520 - this.vy) * 3 * dt; this.vx *= 1 - 2 * dt; this.heading += this.spinDir * 9 * dt; }
-      else {
-        this.vy = 0; this.vx *= 1 - 6 * dt;
-        const h = wrap(this.heading), flat = h >= 0 ? 1.5 : -1.5;
-        this.heading = h + (flat - h) * Math.min(1, dt * 10);
-      }
+      this.heading += this.spinDir * 1.6 * dt;
+      this.vx += (wind * 60 + gust * A.gust * 0.5 - this.vx) * 1.5 * dt;
+      this.vy += (-70 - this.vy) * 2 * dt;
       this.x += this.vx * dt; this.y = Math.max(14, this.y + this.vy * dt);
+      if (this.y <= 14) this.vy = 0;
       this.x = Math.max(20, Math.min(A.W - 20, this.x));
-      if (this.downT <= 0) { this.downT = 0; this.vy = 360; this.vx = 0; this.heading = 0; this.invT = 1; }
+      if (this.downT <= 0) { this.downT = 0; this.safeT = A.safeTime; }
       this.sharpT = Math.max(0, this.sharpT - dt); this.boostT = Math.max(0, this.boostT - dt); this.hitCD = Math.max(0, this.hitCD - dt);
       this.stepTail(dt, wind, t);
       return;
     }
+    this.safeT = Math.max(0, this.safeT - dt);
     this.pulling = hold;
     this.pull += ((hold ? 1 : 0) - this.pull) * Math.min(1, dt * 12);
     let ax: number, ay: number;
@@ -275,14 +281,20 @@ export class Fight {
       const nx = dx / d, ny = dy / d, push = (32 - d) / 2;
       a.x -= nx * push; a.y -= ny * push; b.x += nx * push; b.y += ny * push;
       const rel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny, at = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-      // Ramming: whoever charges in harder knocks the other one down
-      const ca = a.vx * nx + a.vy * ny, cb = -(b.vx * nx + b.vy * ny);
-      const [att, vic, push2] = ca >= cb ? [a, b, ca] : [b, a, cb];
-      if (push2 >= A.ramSpeed && att.pulling && att.downT <= 0 && vic.downT <= 0 && vic.invT <= 0) {
-        vic.downT = A.downTime; vic.vx = att.vx * 0.6; vic.vy = -250;
-        att.vx *= 0.3; att.vy *= 0.3; att.invT = Math.max(att.invT, 0.3);
-        this.events.push({ kind: 'knock', who: vic.side, at });
-      } else if (rel < 0) { a.vx += rel * nx; a.vy += rel * ny; b.vx -= rel * nx; b.vy -= rel * ny; this.events.push({ kind: 'bump', at }); }
+      if (rel < 0) { a.vx += rel * nx; a.vy += rel * ny; b.vx -= rel * nx; b.vy -= rel * ny; this.events.push({ kind: 'bump', at }); }
+    }
+
+    // Diving into the other flyer knocks him flat (a shield saves him once)
+    for (const [k, o] of [[a, b], [b, a]] as const) {
+      if (k.downT > 0 || !k.pulling || k.speed < A.ramSpeed || o.downT > 0 || o.safeT > 0 || o.cut) continue;
+      const man = o.man;
+      if (Math.abs(k.x - man.x) > A.manW + A.kiteR || k.y > A.manH + A.kiteR) continue;
+      if (k.vy > -60) continue;   // must be diving down into him, not bouncing up off the grass
+      const at = { x: man.x, y: Math.min(k.y, 40) };
+      k.vy = 380; k.vx = (k.x < man.x ? -1 : 1) * 160; k.heading = 0; k.invT = Math.max(k.invT, 0.4);
+      if (o.shield) { o.shield = false; o.safeT = 3; this.events.push({ kind: 'block', who: o.side, at }); continue; }
+      o.downT = A.downTime;
+      this.events.push({ kind: 'knock', who: o.side, at });
     }
 
     // Dashing through the other kite's string puts a notch in it

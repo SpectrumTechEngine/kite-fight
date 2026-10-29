@@ -4,7 +4,7 @@ import { Fight, rng } from '../src/physics';
 import { AI } from '../src/ai';
 import { OPPONENTS, type Brain } from '../src/opponents';
 
-const MASHER: Brain = { think: 0.25, tol: 9, holdMax: 0.4, mistakes: 2, care: 0, reach: 0, ram: 0 };
+const MASHER: Brain = { think: 0.25, tol: 9, holdMax: 0.4, mistakes: 2, care: 0, reach: 0 };
 
 function match(b0: Brain, b1: Brain, seed: number) {
   const f = new Fight(seed);

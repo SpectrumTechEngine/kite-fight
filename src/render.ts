@@ -330,20 +330,79 @@ export class Renderer {
   /** Where the flyer's string hand is on screen (it droops when they faint). */
   private handPos(k: Kite, f: Fight): Vec {
     const p = this.pose(k, f);
+    const tp = this.tumble(k, f);
+    if (tp) return { x: p.px + tp.hand.x, y: p.py + tp.hand.y };
     const nx = k.hand.x - (k.pulling ? 5 * p.m : 0) - p.px, ny = this.Y(k.hand.y) - p.py;
     const lx = nx + (6 * p.m - nx) * p.sick, ly = ny + (-26 - ny) * p.sick;
     const c = Math.cos(p.ang), s = Math.sin(p.ang);
     return { x: p.px + lx * c - ly * s, y: p.py + lx * s + ly * c };
   }
 
+  /** Knocked over: falls flat on his back kicking, sits up raging, then scrambles up. Body points are relative to his feet. */
+  private tumble(k: Kite, f: Fight) {
+    if (!(k.downT > 0 && !k.cut && f.phase !== 'over')) return null;
+    const at = A.downTime - k.downT, m = k.side ? -1 : 1, ease = (q: number) => q * q * (3 - 2 * q);
+    const cl = (q: number) => Math.max(0, Math.min(1, q));
+    const fall = ease(cl(at / 0.22)), sit = ease(cl((at - 1.0) / 0.25)), up = ease(cl((at - 1.75) / 0.25));
+    const lean = (1.45 * fall - 1.2 * sit) * (1 - up), hipY = -24 + 18 * fall * (1 - up);
+    const hip = { x: -6 * m * fall * (1 - up), y: hipY };
+    const ux = -m * Math.sin(lean), uy = -Math.cos(lean);
+    const shoulder = { x: hip.x + ux * 18, y: hip.y + uy * 18 }, head = { x: hip.x + ux * 30, y: hip.y + uy * 30 };
+    // Legs: kicking in the air while flat, drumming heels while sitting, back under him when he gets up
+    const feet = [0, Math.PI].map((ph, i) => {
+      const a = at < 1.1 ? 0.35 + 0.55 * (0.5 + 0.5 * Math.sin(at * 26 + ph)) : 0.08 + 0.12 * Math.abs(Math.sin(at * 18 + ph));
+      const lie = { x: hip.x + m * Math.cos(a) * 24, y: Math.min(0, hip.y - Math.sin(a) * 24) };
+      const stand = { x: (i ? 6 : -5) * m, y: 0 };
+      return { x: lie.x + (stand.x - lie.x) * up, y: lie.y + (stand.y - lie.y) * up };
+    });
+    const fist = { x: shoulder.x - 3 * m + Math.sin(f.t * 45) * 3, y: shoulder.y - 17 };
+    const hand = { x: shoulder.x + 9 * m, y: Math.min(-2, shoulder.y + 8) };
+    return { at, m, lean, hip, shoulder, head, feet, fist, hand };
+  }
+
+  private tantrum(k: Kite, f: Fight, px: number, py: number, colour: string) {
+    const c = this.ctx, tp = this.tumble(k, f)!, { at, m, hip, shoulder, head, feet, fist, hand } = tp, t = f.t;
+    c.save(); c.translate(px, py); c.lineCap = 'round';
+    c.strokeStyle = '#2f3d4c'; c.lineWidth = 4;
+    c.beginPath(); for (const ft of feet) { c.moveTo(hip.x, hip.y); c.lineTo(ft.x, ft.y); } c.stroke();
+    c.strokeStyle = colour; c.lineWidth = 13;
+    c.beginPath(); c.moveTo(hip.x, hip.y); c.lineTo(shoulder.x + (head.x - hip.x) * 0.05, shoulder.y + (head.y - hip.y) * 0.05); c.stroke();
+    c.lineWidth = 3.5;
+    c.beginPath(); c.moveTo(shoulder.x, shoulder.y); c.lineTo(hand.x, hand.y); c.moveTo(shoulder.x, shoulder.y); c.lineTo(fist.x, fist.y); c.stroke();
+    c.fillStyle = '#c9a26b'; c.beginPath(); c.arc(fist.x, fist.y, 5, 0, 7); c.fill();
+    // Red, furious face
+    c.save(); c.translate(head.x, head.y); c.rotate(-m * tp.lean);
+    c.fillStyle = mix('#f3c9a3', '#ff5a4a', 0.55 + Math.sin(t * 20) * 0.25); c.beginPath(); c.arc(0, 0, 7, 0, 7); c.fill();
+    c.fillStyle = '#3d2c22'; c.beginPath(); c.arc(0, -2, 7.2, Math.PI, 0); c.fill();
+    c.strokeStyle = c.fillStyle = '#2b2b2b'; c.lineWidth = 1.2;
+    for (const ex of [-2.6, 2.6]) { c.beginPath(); c.arc(ex, 0, 1.1, 0, 7); c.fill(); }
+    c.lineWidth = 1.6; c.beginPath(); c.moveTo(-5, -4.5); c.lineTo(-1, -2.2); c.moveTo(5, -4.5); c.lineTo(1, -2.2); c.stroke();
+    c.beginPath(); c.ellipse(0, 3.6, 2.4, 1.4 + Math.abs(Math.sin(at * 18)) * 1.2, 0, 0, 7); c.fill();
+    c.restore();
+    // Steam out of the ears
+    c.fillStyle = '#ffffff';
+    for (let i = 0; i < 3; i++) for (const sd of [-1, 1]) {
+      const q = (at * 1.6 + i / 3) % 1;
+      c.globalAlpha = 0.9 * (1 - q); c.beginPath(); c.arc(head.x + sd * (8 + q * 6), head.y - 3 - q * 16, 1.8 + q * 3, 0, 7); c.fill();
+    }
+    c.globalAlpha = 1;
+    // Swearing (politely)
+    const word = GRAWLIX[Math.floor(at / 0.45) % GRAWLIX.length], bx = head.x + 24 * m, by = Math.min(head.y, -20) - 30;
+    c.font = '900 12px system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    const bw = c.measureText(word).width + 12;
+    c.fillStyle = '#ffffff'; c.beginPath(); c.roundRect(bx - bw / 2, by - 10, bw, 20, 8); c.fill();
+    c.beginPath(); c.moveTo(bx - 6 * m, by + 8); c.lineTo(head.x + 6 * m, head.y - 8); c.lineTo(bx, by + 9); c.fill();
+    c.fillStyle = '#d62828'; c.fillText(word, bx, by + 1);
+    c.restore();
+  }
+
   private flyer(k: Kite, f: Fight) {
     const c = this.ctx, p = this.pose(k, f), m = p.m, t = f.t;
     const colour = k.side ? this.looks[1].a : '#ff7a59';
-    // Kite knocked down: the flyer has a stamping, steaming tantrum
-    const mad = k.downT > 0 && !k.cut && f.phase !== 'over', at = A.downTime - k.downT;
-    const hop = p.won ? -Math.abs(Math.sin(f.phaseT * 9)) * 5 : mad ? -Math.abs(Math.sin(at * 14)) * 6 : k.pulling ? Math.sin(t * 30) * 0.8 : 0;
+    if (this.tumble(k, f)) { this.tantrum(k, f, p.px, p.py, colour); return; }
+    const hop = p.won ? -Math.abs(Math.sin(f.phaseT * 9)) * 5 : k.pulling ? Math.sin(t * 30) * 0.8 : 0;
     const hip = -24 + p.sag + hop, head = hip - 30;
-    const skin = p.sick > 0 ? mix('#f3c9a3', '#a9cf7f', p.sick) : mad ? mix('#f3c9a3', '#ff5a4a', 0.55 + Math.sin(t * 20) * 0.25) : '#f3c9a3';
+    const skin = p.sick > 0 ? mix('#f3c9a3', '#a9cf7f', p.sick) : '#f3c9a3';
     c.save(); c.translate(p.px, p.py); c.rotate(p.ang);
     // Legs (knees buckle while wobbling)
     c.strokeStyle = '#2f3d4c'; c.lineCap = 'round'; c.lineWidth = 4;
@@ -359,27 +418,14 @@ export class Renderer {
     } else {
       for (const ex of [-2.6, 2.6]) { c.beginPath(); c.arc(ex, head, 1.1, 0, 7); c.fill(); }
     }
-    if (mad) {
-      // cross eyebrows, a shouting mouth, steam out of the ears
-      c.lineWidth = 1.6; c.beginPath(); c.moveTo(-5, head - 4.5); c.lineTo(-1, head - 2.2); c.moveTo(5, head - 4.5); c.lineTo(1, head - 2.2); c.stroke();
-      c.beginPath(); c.ellipse(0, head + 3.6, 2.4, 1.4 + Math.abs(Math.sin(at * 18)) * 1.2, 0, 0, 7); c.fill();
-      c.fillStyle = '#ffffff';
-      for (let i = 0; i < 3; i++) for (const sd of [-1, 1]) {
-        const q = (at * 1.6 + i / 3) % 1;
-        c.globalAlpha = 0.9 * (1 - q); c.beginPath(); c.arc(sd * (8 + q * 6), head - 3 - q * 16, 1.8 + q * 3, 0, 7); c.fill();
-      }
-      c.globalAlpha = 1;
-      const word = GRAWLIX[Math.floor(at / 0.45) % GRAWLIX.length], bx = 22 * m, by = head - 26;
-      c.font = '900 12px system-ui'; c.textAlign = 'center'; c.textBaseline = 'middle';
-      const bw = c.measureText(word).width + 12;
-      c.fillStyle = '#ffffff'; c.beginPath(); c.roundRect(bx - bw / 2, by - 10, bw, 20, 8); c.fill();
-      c.beginPath(); c.moveTo(bx - 6 * m, by + 8); c.lineTo(6 * m, by + 16); c.lineTo(bx, by + 9); c.fill();
-      c.fillStyle = '#d62828'; c.fillText(word, bx, by + 1);
-      c.strokeStyle = c.fillStyle = '#2b2b2b'; c.lineWidth = 1.2;
+    if (k.safeT > 0 && !p.out && (k.safeT > 2 || Math.sin(t * 16) > 0)) {
+      // Plaster on his head: he's just been knocked over and can't be again for a while
+      c.save(); c.translate(3 * m, head - 4.5); c.rotate(0.6 * m); c.fillStyle = '#f6d7b0'; c.strokeStyle = '#b98a5c'; c.lineWidth = 0.8;
+      for (const r of [0, Math.PI / 2]) { c.save(); c.rotate(r); c.beginPath(); c.roundRect(-5, -1.6, 10, 3.2, 1.4); c.fill(); c.stroke(); c.restore(); }
+      c.restore(); c.strokeStyle = c.fillStyle = '#2b2b2b'; c.lineWidth = 1.2;
     }
     c.beginPath();
-    if (mad) { /* mouth already drawn */ }
-    else if (p.won) c.arc(0, head + 2, 2.6, 0.1 * Math.PI, 0.9 * Math.PI);
+    if (p.won) c.arc(0, head + 2, 2.6, 0.1 * Math.PI, 0.9 * Math.PI);
     else if (p.sick > 0) { c.moveTo(-2.5, head + 3.5); c.quadraticCurveTo(-1, head + 2.2, 0, head + 3.5); c.quadraticCurveTo(1, head + 4.8, 2.5, head + 3.5); }
     c.stroke();
     if (p.sick > 0.3 && !p.out) { // sweat drop
@@ -399,7 +445,7 @@ export class Renderer {
     c.strokeStyle = colour; c.lineWidth = 3.5;
     c.beginPath(); c.moveTo(3 * m, hip - 18); c.lineTo(hx, hy); c.stroke();
     // Spool arm: punches the air when they win
-    const sx = p.won ? -10 * m : mad ? -9 * m + Math.sin(t * 45) * 2.5 : -6 * m, sy = p.won || mad ? hip - 46 : hip - 8;
+    const sx = p.won ? -10 * m : -6 * m, sy = p.won ? hip - 46 : hip - 8;
     c.beginPath(); c.moveTo(-3 * m, hip - 18); c.lineTo(sx, sy); c.stroke();
     c.fillStyle = '#c9a26b'; c.beginPath(); c.arc(sx, sy, 5, 0, 7); c.fill();
     c.restore();
@@ -420,6 +466,11 @@ export class Renderer {
       return;
     }
     const pts = k.stringPts(20), from = Math.round(20 * A.hitFrom);
+    if (k.downT > 0) {
+      // He's on the grass: the slack string runs from wherever his hand ended up
+      const hp = this.handPos(k, f), ox = hp.x - pts[0].x, oy = this.Y(pts[0].y) - hp.y;
+      pts.forEach((q, i) => { const w = (1 - i / 20) ** 2; q.x += ox * w; q.y += oy * w; });
+    }
     if (this.highlight && k.side === 1) {
       c.save(); c.strokeStyle = `rgba(255,214,90,${0.45 + Math.sin(f.t * 6) * 0.25})`; c.lineWidth = 12; c.lineCap = 'round';
       c.beginPath(); c.moveTo(pts[from].x, this.Y(pts[from].y));

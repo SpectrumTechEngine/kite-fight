@@ -16,7 +16,7 @@ export function pack(f: Fight, id: number, events: [number, FEvent][], lk: [numb
   return {
     id, ph: PHASES.indexOf(f.phase), pt: r1(f.phaseT), rt: r1(f.roundT), rd: f.round, sc: f.score, w: Math.round(f.wind * 100) / 100, n: f.notches, wn: f.winner,
     k: f.kites.map((k) => [Math.round(k.x), Math.round(k.y), Math.round(k.vx), Math.round(k.vy), Math.round(k.heading * 100) / 100, k.pulling ? 1 : 0, k.health,
-      r1(k.sharpT), r1(k.boostT), r1(k.invT), k.cut ? 1 : 0, k.cutAt ? Math.round(k.cutAt.x) : 0, k.cutAt ? Math.round(k.cutAt.y) : 0, r1(k.downT), k.shield ? 1 : 0]),
+      r1(k.sharpT), r1(k.boostT), r1(k.invT), k.cut ? 1 : 0, k.cutAt ? Math.round(k.cutAt.x) : 0, k.cutAt ? Math.round(k.cutAt.y) : 0, r1(k.downT), k.shield ? 1 : 0, Math.ceil(k.safeT)]),
     pu: f.pickups.map((p) => [Math.round(p.x), Math.round(p.y), PU.indexOf(p.type), r1(p.t)]),
     e: events, lk, nm, g: [r1(f.gustWarn), Math.round(f.gustOn * 100) / 100, f.gustDir],
   };
@@ -37,12 +37,12 @@ export function apply(f: Fight, s: Snap) {
   f.gustWarn = Number(s.g[0]) || 0; f.gustOn = Number(s.g[1]) || 0; f.gustDir = s.g[2] === -1 ? -1 : 1;
   f.kites.forEach((k, i) => {
     const d = s.k[i]; if (!d) return;
-    const [x, y, vx, vy, hd, pl, hp, sh, bo, inv, cut, cx, cy, dn, sd] = d;
+    const [x, y, vx, vy, hd, pl, hp, sh, bo, inv, cut, cx, cy, dn, sd, sf] = d;
     const far = Math.hypot(x - k.x, y - k.y) > 80 || newRound || (cut === 1) !== k.cut;
     if (far) { k.x = x; k.y = y; } else { k.x += (x - k.x) * 0.5; k.y += (y - k.y) * 0.5; }
     k.vx = vx; k.vy = vy; k.heading = hd; k.pulling = pl === 1; k.health = hp;
     k.sharpT = sh; k.boostT = bo; k.invT = inv; k.cut = cut === 1; k.cutAt = k.cut ? { x: cx, y: cy } : null;
-    k.downT = Number(dn) || 0; k.shield = sd === 1;
+    k.downT = Number(dn) || 0; k.shield = sd === 1; k.safeT = Number(sf) || 0;
     if (newRound) k.place(x, y, hd);
   });
   f.pickups = s.pu.map(([x, y, t, pt]) => ({ x, y, type: PU[t] ?? 'glass', t: pt }));
