@@ -8,7 +8,7 @@ When the game opens, a slow-motion "How to win" reel shows a kite looping throug
 
 Ten computer opponents in a ladder (beat one to unlock the next): Little Niamh, Grandad Joe, Uncle Ravi, Big Bridget, Captain Gale, Professor Sprocket, Ninja Nori, The Sky Queen, Madame Mistral, The Storm King (near unbeatable: instant reactions, exact aim).
 
-Extras: **knock-overs** (dive your kite into the other flyer at 200+ speed and he falls flat for 2 s: his kite goes slack with no control while he kicks, sits up steaming and swears in symbols; then he wears a plaster and can't be knocked over again for 15 s; a shield saves him once; kites hitting kites just bump; computer opponents never start it, they only pay you back: one dive per knock-over you land, and each dive lands about half the time, see `steerDive` in `src/ai.ts`), **gusts** (a "GUST!" warning, then a strong sideways push for 1.6 s), the **shield** power-up (blocks one notch), a new **sky every round** (Sunny hills, Sunset rooftops, Seaside, Lantern night: `SKIES` in `src/render.ts`), a **kill-cam** (the winning cut replayed in slow motion and zoomed in; tap to skip), "BO KATA!" on every cut, phone **buzz** (follows the Sound switch), and **trophies**: the winner keeps the loser's kite (1 Player and Online wins are saved in the 🏆 Trophies cabinet on the title screen; just for show).
+Extras: **knock-overs** (dive your kite into the other flyer at 200+ speed and he falls flat for 2 s: his kite goes slack with no control while he kicks, sits up steaming and swears in symbols; then he wears a plaster and can't be knocked over again for 15 s; a shield saves him once; kites hitting kites just bump; computer opponents never start it, they only pay you back: one dive per knock-over you land, and each dive lands about half the time, see `steerDive` in `src/ai.ts`), **gusts** (a "GUST!" warning, then a strong sideways push for 1.6 s), the **shield** power-up (blocks one notch), a **sky per opponent** in 1 Player (a new one each 2 Players match; one per online match; `SKIES` in `src/render.ts`, `Fight.sky`), a **kill-cam** (the winning cut replayed in slow motion and zoomed in; tap to skip), "BO KATA!" on every cut, phone **buzz** (follows the Sound switch), and **trophies**: the winner keeps the loser's kite (1 Player and Online wins are saved in the 🏆 Trophies cabinet on the title screen; just for show).
 
 ## Run it locally
 
@@ -41,3 +41,7 @@ npm run dev
 Add an entry to `OPPONENTS` in `src/opponents.ts`. Brain settings: `think` (seconds between decisions, lower = faster), `tol` (how precisely it lines up a dash), `holdMax` (longest dash), `mistakes` (wrong moves per second), `care` (height it tries to stay above: higher = more timid), `reach` (how far past your string it aims), `snipe` (chance of checking exactly whether a dash right now would cut your string). Then run `npm run sim` to see where it lands in the ladder.
 
 The earlier calm flying version is kept in `_old-flight/` (not part of the build).
+
+## Owner test mode
+
+Typing the owner's test name in the title-screen name box (checked as a scrambled hash, `isCheat` in `src/storage.ts`) shows a 🛠 Test mode badge, opens every opponent, and adds a skill slider on the versus screen (1 = Little Niamh's brain, up to the opponent's own). Wins still count. Online, other players see "Kite Flyer" instead.

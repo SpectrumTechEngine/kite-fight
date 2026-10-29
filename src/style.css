@@ -88,6 +88,10 @@ button.big.alt { background: #3a86ff; }
 button.big.net { background: #2a9d8f; }
 .screen input { user-select: text; -webkit-user-select: text; touch-action: manipulation; }
 .screen input { font: inherit; font-size: 1.05rem; padding: 0.55em 0.9em; border-radius: 999px; border: 0; width: 11em; box-shadow: 0 3px 10px rgba(30, 60, 90, 0.18); color: var(--ink); }
+#nameIn { text-align: center; }
+.cheat { background: #ffd166; color: #5a3e00; font-weight: 800; font-size: 0.85rem; padding: 0.3em 0.8em; border-radius: 999px; }
+.skill { display: flex; align-items: center; gap: 0.5rem; background: #fff3c4; color: #5a3e00; font-weight: 700; font-size: 0.9rem; padding: 0.35em 0.9em; border-radius: 999px; }
+.skill input { width: 9em; box-shadow: none; padding: 0; }
 #codeIn { width: 6em; text-align: center; letter-spacing: 0.2em; }
 .lobby { display: grid; gap: 0.4rem; width: min(520px, 100%); }
 .lobby .chal { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; background: var(--paper); border-radius: 16px; padding: 0.45rem 0.6rem 0.45rem 1rem; text-align: left; }

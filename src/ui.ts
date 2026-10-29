@@ -1,5 +1,5 @@
 import { OPPONENTS, type KiteLook } from './opponents';
-import type { Save } from './storage';
+import { isCheat, type Save } from './storage';
 import { MODES } from './modes';
 import { KITES, drawKite } from './render';
 
@@ -17,7 +17,7 @@ export const el = {
   onlineBtn: $('onlineBtn'), nameIn: $<HTMLInputElement>('nameIn'), hostBtn: $('hostBtn'), codeIn: $<HTMLInputElement>('codeIn'), joinBtn: $('joinBtn'),
   lobbyList: $('lobbyList'), onlineNote: $('onlineNote'), onlineBack: $('onlineBack'),
   waitTitle: $('waitTitle'), waitCode: $('waitCode'), waitMsg: $('waitMsg'), shareBtn: $('shareBtn'), waitCancel: $('waitCancel'),
-  fightLabel: $('fightBtn'),
+  fightLabel: $('fightBtn'), cheatBadge: $('cheatBadge'), skillRow: $('skillRow'), skillIn: $<HTMLInputElement>('skillIn'), skillVal: $('skillVal'),
   endTitle: $('endTitle'), endSub: $('endSub'), nextBtn: $<HTMLButtonElement>('nextBtn'),
   playBtn: $('playBtn'), howBtn: $('howBtn'), howClose: $('howClose'), ladderBack: $('ladderBack'),
   fightBtn: $('fightBtn'), vsBack: $('vsBack'), pauseBtn: $('pauseBtn'), resumeBtn: $('resumeBtn'), quitBtn: $('quitBtn'),
@@ -36,7 +36,7 @@ export function show(e: HTMLElement, on = true) { e.classList.toggle('hidden', !
 export function setSoundLabel(on: boolean) { for (const b of el.soundBtns) b.textContent = `Sound: ${on ? 'on' : 'off'}`; }
 export function setMusicLabel(on: boolean) { for (const b of el.musicBtns) b.textContent = `Music: ${on ? 'on' : 'off'}`; }
 
-export const unlocked = (data: Save, i: number) => i === 0 || !!data.beaten[OPPONENTS[i].id] || !!data.beaten[OPPONENTS[i - 1].id];
+export const unlocked = (data: Save, i: number) => i === 0 || isCheat(data.settings.name) || !!data.beaten[OPPONENTS[i].id] || !!data.beaten[OPPONENTS[i - 1].id];
 
 export function buildModes(current: number, pick: (cuts: number) => void) {
   el.modes.innerHTML = '';

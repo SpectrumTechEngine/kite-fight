@@ -26,6 +26,10 @@
   <div id="title" class="screen">
     <h1>Kite Fight</h1>
     <p class="sub">Dash through their string three times to cut it!</p>
+    <div class="row name-row">
+      <input id="nameIn" maxlength="14" placeholder="Your name" aria-label="Your name" autocomplete="off">
+      <span class="cheat hidden" id="cheatBadge">🛠 Test mode</span>
+    </div>
     <div class="row">
       <button class="big" id="playBtn">1 Player</button>
       <button class="big alt" id="twoBtn">2 Players</button>
@@ -76,7 +80,6 @@
     <h2>Online duel</h2>
     <button class="big" id="quickBtn">⚡ Find a match</button>
     <div class="row">
-      <input id="nameIn" maxlength="14" placeholder="Your name" aria-label="Your name" autocomplete="off">
       <button class="big" id="hostBtn">Open a challenge</button>
     </div>
     <div class="row">
@@ -121,6 +124,7 @@
     <p class="pick-title">Choose your battle</p>
     <div class="modes" id="modes"></div>
     <p class="tip" id="modeBlurb"></p>
+    <label class="skill hidden" id="skillRow">🛠 Skill <input type="range" id="skillIn" min="1" max="10" step="1"> <span id="skillVal"></span></label>
     <button class="big" id="fightBtn">Fight!</button>
     <button class="small" id="vsBack">Back</button>
   </div>

@@ -208,7 +208,10 @@ export class Fight {
   events: FEvent[] = [];
   r: () => number;
 
+  sky: number;   // which backdrop: stays the same for the whole match
+
   constructor(public seed = 1, public notches = 3, public firstTo = 2) {
+    this.sky = seed;
     this.r = rng(seed);
     this.kites = [new Kite(0, { x: 90, y: 52 }), new Kite(1, { x: A.W - 90, y: 52 })];
     for (const k of this.kites) k.max = notches;

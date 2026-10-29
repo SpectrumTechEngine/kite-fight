@@ -36,7 +36,7 @@ export const SKIES: Sky[] = [
   { name: 'Lantern night', top: '#0b1a3a', mid: '#213a6b', low: '#3d4f80', glow: '#e8ecff', sun: [790, 90, 110], disc: '#f4f1de', clouds: null,
     far: '#1d2b4f', near: '#26365e', town: 'lit', night: true, ground: '#2e5a3c', ground2: '#3c6e4a', blade: '#1f4029' },
 ];
-export const skyOf = (f: Fight) => SKIES[(((f.seed + f.round - 1) % SKIES.length) + SKIES.length) % SKIES.length];
+export const skyOf = (f: Fight) => SKIES[((f.sky % SKIES.length) + SKIES.length) % SKIES.length];
 
 type P2 = [number, number];
 /** Draw a kite body at the origin, nose pointing up (canvas units). Used in the game and the kite picker. */

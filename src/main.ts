@@ -3,7 +3,7 @@ import { AI } from './ai';
 import { OPPONENTS, type KiteLook } from './opponents';
 import { Renderer, KITES, VW, VH, GROUND } from './render';
 import { Input } from './input';
-import { load, save, addTrophy } from './storage';
+import { load, save, addTrophy, isCheat } from './storage';
 import * as audio from './audio';
 import { el, only, show, setSoundLabel, setMusicLabel, buildLadder, buildModes, buildKites, buildTrophies, kiteCanvas } from './ui';
 import { modeFor } from './modes';
@@ -85,6 +85,7 @@ function startCam() {
   const frames = rec.filter((fr) => fr.t >= first.t - 1.1 && fr.t <= first.t + 0.45);
   if (frames.length < 10) return;
   const ghost = new Fight(fight.seed, fight.notches, fight.firstTo);
+  ghost.sky = fight.sky;
   ghost.round = fight.round; ghost.score = [fight.score[0], fight.score[1]]; ghost.events = [];
   cam = { frames, t: frames[0].t, cutT: first.t, at: lastCutAt, ghost, boom: false };
   r.replay = true; r.big = null; r.pops = [];
@@ -147,9 +148,11 @@ function startMatch(i: number) {
   twoP = false; opp = i;
   const o = OPPONENTS[i];
   fight = new Fight(++seed, data.settings.cuts);
-  brains = [null, new AI(o.brain, 1, rng(seed))];
+  fight.sky = i;                                   // each opponent has their own sky
+  const level = isCheat(data.settings.name) ? Math.min(i, Number(el.skillIn.value) - 1) : i;   // test mode: weaker brain
+  brains = [null, new AI(OPPONENTS[level].brain, 1, rng(seed))];
   r.looks = [kiteLook(data.settings.kite), o.look];
-  begin(['You', o.name]);
+  begin([localName() || 'You', o.name]);
 }
 
 function startTwo() {
@@ -157,7 +160,7 @@ function startTwo() {
   fight = new Fight(++seed, data.settings.cuts);
   brains = [null, null];
   r.looks = [kiteLook(data.settings.kite), kiteLook(data.settings.kite2)];
-  begin(['Player 1', 'Player 2']);
+  begin([localName() || 'Player 1', 'Player 2']);
 }
 
 function begin(names: [string, string]) {
@@ -198,16 +201,26 @@ function showModes() {
   buildModes(data.settings.cuts, pick);
 }
 
+function localName() { return (data.settings.name || '').trim().slice(0, 14); }
+function skillText() {
+  const n = Number(el.skillIn.value), max = Number(el.skillIn.max);
+  el.skillVal.textContent = n >= max ? `${n} (normal)` : `${n} (as good as ${OPPONENTS[n - 1].name})`;
+}
+
 function versus(i: number) {
   el.fightLabel.textContent = 'Fight!';
   const o = OPPONENTS[i];
   opp = i;
-  el.vsFace.textContent = o.emoji; el.vsName.textContent = `You vs ${o.name}`; el.vsTag.textContent = o.tagline;
+  el.vsFace.textContent = o.emoji; el.vsName.textContent = `${localName() || 'You'} vs ${o.name}`; el.vsTag.textContent = o.tagline;
   showModes();
+  // Test mode: a slider to make them weaker (1 = Little Niamh's brain ... their own level)
+  show(el.skillRow, isCheat(data.settings.name));
+  el.skillIn.max = String(i + 1); el.skillIn.value = String(i + 1); el.skillIn.disabled = i === 0; skillText();
   only(el.versus);
 }
 
 function versusOnline() {
+  show(el.skillRow, false);
   el.vsFace.textContent = '🌍'; el.vsName.textContent = 'Online challenge';
   el.vsTag.textContent = 'Choose the battle, then send your friend the code.';
   el.fightLabel.textContent = 'Open challenge';
@@ -217,6 +230,7 @@ function versusOnline() {
 
 function versusTwo() {
   el.fightLabel.textContent = 'Fight!';
+  show(el.skillRow, false);
   el.vsFace.textContent = '🧑‍🤝‍🧑'; el.vsName.textContent = 'Player 1 vs Player 2';
   el.vsTag.textContent = 'Hold the left half of the screen (or A) for the left kite, the right half (or L) for the right kite.';
   showModes();
@@ -286,11 +300,14 @@ let lobby: Room | null = null;
 let lobbyStarting: Promise<void> | null = null;
 let netBusy = false;           // stops a double tap from joining or hosting twice
 const CHALLENGE_LIFE = 10 * 60 * 1000;
-const myName = () => (data.settings.name || '').trim().slice(0, 14) || 'A kite flyer';
+const myName = () => (isCheat(data.settings.name) ? '' : localName()) || 'Kite Flyer';   // online players never see the test name
 const note = (t: string) => { el.onlineNote.textContent = t; };
 
 el.nameIn.value = data.settings.name;
-el.nameIn.oninput = () => { data.settings.name = el.nameIn.value.slice(0, 14); save(data); };
+const badge = () => show(el.cheatBadge, isCheat(data.settings.name));
+badge();
+el.nameIn.oninput = () => { data.settings.name = el.nameIn.value.slice(0, 14); save(data); badge(); };
+el.skillIn.oninput = skillText;
 el.codeIn.oninput = () => { el.codeIn.value = el.codeIn.value.replace(/\D/g, '').slice(0, 4); };
 el.hostBtn.onclick = () => { if (!lobby) return note('Still connecting… try again in a moment.'); versusOnline(); };
 el.joinBtn.onclick = () => joinDuel(el.codeIn.value);

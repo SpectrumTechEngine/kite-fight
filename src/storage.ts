@@ -7,6 +7,13 @@ const KEY = 'kitefight_v1';
 /** A beaten rival's kite, kept for show (it can't be flown). n = how many times you've won it. */
 export interface Trophy { key: string; name: string; look: KiteLook; n: number }
 
+/** The owner's test name (stored scrambled so it can't be read in the code): opens every opponent and the skill slider. */
+export function isCheat(name: string) {
+  let h = 0x811c9dc5;
+  for (const ch of name.trim().toLowerCase()) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h === 2856948549;
+}
+
 export interface Save {
   beaten: Record<string, boolean>;   // opponent id -> beaten at least once
   trophies: Trophy[];
